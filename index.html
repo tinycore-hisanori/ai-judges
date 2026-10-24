@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AI Judges</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚖️</text></svg>">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="stage">
+    <header class="masthead">
+      <h1>AI Judges</h1>
+      <p class="tagline">Three judges. One pitch. Rewrite until they change their minds.</p>
+    </header>
+
+    <div id="banner" class="banner" hidden>Can't reach the local model. Is Ollama running?</div>
+
+    <section id="panel" class="panel" aria-label="Judging panel"></section>
+
+    <section class="pitch">
+      <textarea id="pitch" rows="6" placeholder="Paste your pitch — 3 to 5 lines"></textarea>
+      <div id="counter" class="counter">0 characters</div>
+      <div class="controls">
+        <button id="submit" class="btn primary" disabled>Submit to the panel</button>
+        <button id="newPitch" class="btn ghost">New pitch</button>
+      </div>
+    </section>
+
+    <section id="badge" class="badge empty" aria-live="polite"></section>
+  </main>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
