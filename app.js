@@ -1,18 +1,21 @@
-import { JUDGES, buildMessages } from "./judges.js";
+import { JUDGES, MODEL, buildMessages } from "./judges.js";
 
 const OLLAMA_URL = "http://localhost:11434/api/chat";
-const MODEL = "qwen2.5:14b";
 const MIN_PITCH_CHARS = 20;
 const ADVANCE_THRESHOLD = 70;
 
+// Evidence-first: the model copies the relevant pitch sentence and picks a band
+// before it writes the reason and score. Only reason/score/fix are kept.
 const VERDICT_SCHEMA = {
   type: "object",
   properties: {
-    score: { type: "integer", minimum: 0, maximum: 100 },
+    evidence: { type: "string" },
+    band: { type: "string", enum: ["absent", "vague", "specific", "exceptional"] },
     reason: { type: "string" },
+    score: { type: "integer", minimum: 0, maximum: 100 },
     fix: { type: "string" },
   },
-  required: ["score", "reason", "fix"],
+  required: ["evidence", "band", "reason", "score", "fix"],
 };
 
 // --- State ---------------------------------------------------------------
@@ -42,7 +45,7 @@ export function scoreDelta(prev, next) {
 
 // --- Model access (the one seam for a future provider switch) -------------
 
-async function callJudge(judge, messages) {
+async function callJudge(judge, messages, seed = judge.seed) {
   const res = await fetch(OLLAMA_URL, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -51,7 +54,7 @@ async function callJudge(judge, messages) {
       messages,
       stream: false,
       format: VERDICT_SCHEMA,
-      options: { temperature: 0.2, seed: judge.seed },
+      options: { temperature: 0.2, seed },
     }),
   });
   if (!res.ok) throw new Error(`Ollama HTTP ${res.status}`);
@@ -59,22 +62,37 @@ async function callJudge(judge, messages) {
   return JSON.parse(data.message.content);
 }
 
+class UnusableVerdict extends Error {}
+
 export function validateVerdict(v) {
-  if (!v || typeof v !== "object") throw new Error("verdict is not an object");
-  if (!Number.isInteger(v.score) || v.score < 0 || v.score > 100) throw new Error("score out of range");
-  if (typeof v.reason !== "string" || !v.reason.trim()) throw new Error("empty reason");
-  if (typeof v.fix !== "string" || !v.fix.trim()) throw new Error("empty fix");
+  const fail = (msg) => { throw new UnusableVerdict(msg); };
+  if (!v || typeof v !== "object") fail("verdict is not an object");
+  if (!Number.isInteger(v.score) || v.score < 0 || v.score > 100) fail("score out of range");
+  if (typeof v.reason !== "string" || !v.reason.trim()) fail("empty reason");
+  if (typeof v.fix !== "string" || !v.fix.trim()) fail("empty fix");
   return { score: v.score, reason: v.reason.trim(), fix: v.fix.trim() };
 }
 
 // --- Round controller ------------------------------------------------------
 
+async function askJudge(judge) {
+  const messages = buildMessages(judge, state.pitch, state.previous[judge.id]);
+  try {
+    return validateVerdict(await callJudge(judge, messages));
+  } catch (err) {
+    if (!(err instanceof UnusableVerdict)) throw err;
+    // One automatic retry for an unusable answer. A different seed, or the
+    // deterministic model would repeat the same answer.
+    console.warn(`${judge.name} gave an unusable answer (${err.message}); retrying once`);
+    return validateVerdict(await callJudge(judge, messages, judge.seed + 1));
+  }
+}
+
 async function runJudge(judge) {
   state.status[judge.id] = "reading";
   renderCard(judge);
   try {
-    const raw = await callJudge(judge, buildMessages(judge, state.pitch, state.previous[judge.id]));
-    state.current[judge.id] = validateVerdict(raw);
+    state.current[judge.id] = await askJudge(judge);
     state.status[judge.id] = "done";
   } catch (err) {
     console.warn(`${judge.name} failed:`, err);

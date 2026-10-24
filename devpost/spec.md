@@ -99,11 +99,11 @@ PRD ref: `prd.md > Screens and Layout`.
 PRD ref: `prd.md > The Judges`, `prd.md > Resubmit and Score Movement`.
 
 ### Judge Call (`callJudge` in `app.js`)
-The only function that talks to the model, and the seam for a later provider switch. It POSTs to `http://localhost:11434/api/chat` (see **External Services and Dependencies**), with a 60 s `AbortController` timeout. It parses `message.content` as JSON and returns the parsed object. Network, HTTP, timeout and parse errors all throw.
+The only function that talks to the model, and the seam for a later provider switch. The model name is the `MODEL` constant at the top of `judges.js` (one line to switch, e.g. to `qwen2.5:32b`). It POSTs to `http://localhost:11434/api/chat` (see **External Services and Dependencies**), with a 60 s `AbortController` timeout. It parses `message.content` as JSON and returns the parsed object. Network, HTTP, timeout and parse errors all throw.
 PRD ref: `prd.md > Deliberation and Reveal`.
 
 ### Verdict Validation (`validateVerdict` in `app.js`)
-Accepts only when `score` is an integer from 0 to 100 and `reason` and `fix` are non-empty strings after trimming. Anything else throws, and the judge is treated as failed.
+Accepts only when `score` is an integer from 0 to 100 and `reason` and `fix` are non-empty strings after trimming, and keeps only `{score, reason, fix}`. An unusable answer gets **one automatic retry with `seed + 1`** (the same seed would repeat the same answer); a second unusable answer marks the judge failed. Network, HTTP and timeout errors are not retried, so "Ollama is down" doesn't double the wait.
 PRD ref: `prd.md > States and Boundaries` (unusable answer).
 
 ### Round Controller (`app.js`)
@@ -209,16 +209,19 @@ AiJudgements/
     "format": {
       "type": "object",
       "properties": {
-        "score":  { "type": "integer", "minimum": 0, "maximum": 100 },
-        "reason": { "type": "string" },
-        "fix":    { "type": "string" }
+        "evidence": { "type": "string" },
+        "band":     { "type": "string", "enum": ["absent", "vague", "specific", "exceptional"] },
+        "reason":   { "type": "string" },
+        "score":    { "type": "integer", "minimum": 0, "maximum": 100 },
+        "fix":      { "type": "string" }
       },
-      "required": ["score", "reason", "fix"]
+      "required": ["evidence", "band", "reason", "score", "fix"]
     },
     "options": { "temperature": 0.2, "seed": 101 }
   }
   ```
-- **Response (relevant part):** `{ "message": { "role": "assistant", "content": "{\"score\":58,\"reason\":\"...\",\"fix\":\"...\"}" }, "done": true }`. Parse `message.content` as JSON, then validate. Don't rely on the schema's `minimum`/`maximum` alone.
+- **Evidence-first order:** the model fills the properties in schema order, so it copies the pitch sentence that addresses its priority (`evidence`, `""` if none) and picks a `band` *before* writing the reason and score. This was the only variant that stopped the marketer claiming a stated audience was missing. `evidence` and `band` aren't displayed or stored.
+- **Response (relevant part):** `{ "message": { "role": "assistant", "content": "{\"evidence\":\"...\",\"band\":\"vague\",\"reason\":\"...\",\"score\":45,\"fix\":\"...\"}" }, "done": true }`. Parse `message.content` as JSON, then validate. Don't rely on the schema's `minimum`/`maximum` alone.
 - **Timing:** about 4–6 s per judge, about 15 s per round. The first call after Ollama starts also loads the model, so expect a slower first round.
 - **CORS:** browser calls from `http://localhost:*` should be allowed by default. If they're blocked, set `OLLAMA_ORIGINS=http://localhost:8000` and restart Ollama.
 - **Docs:** https://github.com/ollama/ollama/blob/main/docs/api.md · https://ollama.com/blog/structured-outputs
@@ -243,7 +246,8 @@ AiJudgements/
 - **Plain HTML/CSS/JS, served statically.** No build overhead for a one-day page.
 - **Browser calls Ollama directly, with `callJudge` as the single seam.**
 - **Native `/api/chat` with `format: <JSON schema>`, instead of the OpenAI-compatible `/v1` endpoint.** It's documented to enforce the schema. `scope.md > The POC Boundary` has been updated to match (it previously said "OpenAI-compatible endpoint"). The cheap switch is preserved by `callJudge` owning the request shape, not by the endpoint.
-- **`qwen2.5:14b` on an RTX 4090, judges run one after another.**
+- **`qwen2.5:14b` on an RTX 4090, judges run one after another.** The model is one constant (`MODEL` in `judges.js`). At the slice-2 checkpoint 14B couldn't reliably tell whether something was already in the pitch; `qwen2.5:32b` is being downloaded and the final model will be chosen from a comparison on three tests (recipe pair, the learner's real pair, the marketer test).
+- **Evidence-first verdict schema, plus one automatic retry (seed + 1) on an unusable answer.**
 - **Resubmits give each judge only its previous score, as reference** ("For reference, last round you gave N."), after the instruction to read the pitch fresh. Changed at the slice-2 checkpoint: passing the old reason anchored judges to it.
 - **Temperature 0.2 and a fixed seed per judge**, so the same pitch reproduces the same score.
 - **Portraits generated with Codex's image tool** (same style prompt for all three), with initial placeholders first.
