@@ -1,7 +1,9 @@
-import { JUDGES, MODEL, buildMessages } from "./judges.js";
+import { JUDGES, MODEL, MAX_PITCH_CHARS, buildMessages } from "./judges.js";
 
 const OLLAMA_URL = "http://localhost:11434/api/chat";
 const MIN_PITCH_CHARS = 20;
+const WARN_PITCH_CHARS = 800;
+const JUDGE_TIMEOUT_MS = 60_000;
 const ADVANCE_THRESHOLD = 70;
 
 // Evidence-first: the model copies the relevant pitch sentence and picks a band
@@ -48,6 +50,7 @@ export function scoreDelta(prev, next) {
 async function callJudge(judge, messages, seed = judge.seed) {
   const res = await fetch(OLLAMA_URL, {
     method: "POST",
+    signal: AbortSignal.timeout(JUDGE_TIMEOUT_MS),
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       model: MODEL,
@@ -99,12 +102,24 @@ async function runJudge(judge) {
     state.status[judge.id] = "failed";
   }
   renderCard(judge);
+  if (state.status[judge.id] === "done") els.banner.hidden = true;
+}
+
+async function retryJudge(id) {
+  if (state.running) return;
+  const judge = JUDGES.find((j) => j.id === id);
+  state.running = true;
+  renderControls();
+  renderBadge();
+  await runJudge(judge);
+  finishRound();
 }
 
 async function submitRound() {
   if (state.running) return;
   state.running = true;
   state.pitch = els.pitch.value;
+  els.banner.hidden = true;
   for (const judge of JUDGES) {
     // Each judge's last completed verdict becomes the one we compare against.
     if (state.current[judge.id]) state.previous[judge.id] = state.current[judge.id];
@@ -125,6 +140,8 @@ async function submitRound() {
 
 function finishRound() {
   state.running = false;
+  // All three down usually means Ollama itself isn't reachable: say so once.
+  els.banner.hidden = !JUDGES.every((j) => state.status[j.id] === "failed");
   const verdicts = JUDGES.map((j) => state.current[j.id]);
   if (verdicts.every(Boolean)) {
     state.lastTotal = panelTotal(verdicts.map((v) => v.score)).total;
@@ -141,6 +158,7 @@ const els = {
   counter: document.getElementById("counter"),
   submit: document.getElementById("submit"),
   badge: document.getElementById("badge"),
+  banner: document.getElementById("banner"),
 };
 
 function portraitHTML(judge) {
@@ -179,7 +197,9 @@ function renderCard(judge) {
   } else if (status === "reading") {
     body.innerHTML = `<p class="status">Reading…</p>`;
   } else if (status === "failed") {
-    body.innerHTML = `<p class="status">The judge left the room</p>`;
+    body.innerHTML = `
+      <p class="status failed-msg">The judge left the room</p>
+      <button class="btn retry" data-retry="${judge.id}" ${state.running ? "disabled" : ""}>Retry</button>`;
   } else {
     const v = state.current[judge.id];
     const prev = state.previous[judge.id];
@@ -230,7 +250,13 @@ function renderControls() {
   els.pitch.readOnly = state.running;
   els.submit.textContent = state.running ? "Panel is deliberating…" : "Submit to the panel";
   els.submit.disabled = state.running || els.pitch.value.trim().length < MIN_PITCH_CHARS;
-  els.counter.textContent = `${els.pitch.value.length} characters`;
+  const n = els.pitch.value.length;
+  els.counter.className = `counter ${n > MAX_PITCH_CHARS ? "over" : n > WARN_PITCH_CHARS ? "warn" : "ok"}`;
+  els.counter.textContent = n > MAX_PITCH_CHARS
+    ? `${n} characters — Judges stop reading after ~${MAX_PITCH_CHARS} characters`
+    : `${n} characters`;
+  // Retry buttons follow the round lock too.
+  els.panel.querySelectorAll("[data-retry]").forEach((b) => (b.disabled = state.running));
 }
 
 // --- Wiring --------------------------------------------------------------------
@@ -241,3 +267,7 @@ renderControls();
 
 els.pitch.addEventListener("input", renderControls);
 els.submit.addEventListener("click", submitRound);
+els.panel.addEventListener("click", (e) => {
+  const id = e.target.closest("[data-retry]")?.dataset.retry;
+  if (id) retryJudge(id);
+});

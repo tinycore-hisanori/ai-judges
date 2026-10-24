@@ -208,3 +208,11 @@ body {
 .badge.advance .badge-verdict { color: var(--up); }
 .badge.reject .badge-verdict { color: var(--down); }
 .badge-scores { display: flex; justify-content: center; gap: 16px; margin-top: 8px; font-size: 0.85rem; color: #cfc8b8; }
+
+/* --- Failure + counter states --- */
+.failed-msg { color: var(--down); font-style: normal; font-weight: 600; }
+.failed-msg::after { content: " — retry"; }
+.btn.retry { align-self: flex-start; font-size: 1.1rem; padding: 6px 16px; background: var(--ink); color: var(--card); border: none; }
+.card.failed .portrait { filter: grayscale(1); opacity: 0.5; }
+.counter.warn { color: #e0a43a; }
+.counter.over { color: #ff6b57; font-weight: 600; }

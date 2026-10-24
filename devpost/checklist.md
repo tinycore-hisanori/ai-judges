@@ -31,7 +31,7 @@ Verification approach: API checks with `curl` against local Ollama, plus a throw
   Learner check: Submit a real pitch, then rewrite three sentences using one judge's fix and resubmit. Does that judge's score move, and do the others stay about the same where you didn't change anything? Is the badge readable at a glance?
   Commit: `Add total badge, resubmit deltas, and previous-round notes`
 
-- [ ] **3. The panel copes with bad input and failures**
+- [x] **3. The panel copes with bad input and failures**
   Becomes usable: Submit stays disabled under 20 characters, the counter warns past 800 and 1500 (sending only the first 1500 characters), a failed judge shows "The judge left the room — retry" with its own retry button, and if all three fail the banner asks "Can't reach the local model. Is Ollama running?"
   Why now: The happy path works by this point. These are the PRD's what-ifs, and they touch the same round controller, so they go before persistence starts saving its results.
   PRD ref: `prd.md > Pitch Box and Submit`, `prd.md > Per-Judge Retry`, `prd.md > States and Boundaries`
