@@ -4,6 +4,8 @@ const OLLAMA_URL = "http://localhost:11434/api/chat";
 const MIN_PITCH_CHARS = 20;
 const WARN_PITCH_CHARS = 800;
 const JUDGE_TIMEOUT_MS = 60_000;
+const STORAGE_KEY = "aiJudges.v1";
+const COUNT_UP_MS = 600;
 const ADVANCE_THRESHOLD = 70;
 
 // Evidence-first: the model copies the relevant pitch sentence and picks a band
@@ -144,8 +146,57 @@ function finishRound() {
   els.banner.hidden = !JUDGES.every((j) => state.status[j.id] === "failed");
   const verdicts = JUDGES.map((j) => state.current[j.id]);
   if (verdicts.every(Boolean)) {
+    const from = state.lastTotal;
     state.lastTotal = panelTotal(verdicts.map((v) => v.score)).total;
+    renderBadge(from);
+    save(); // only complete rounds are saved; a reload mid-round restores the last one
+  } else {
+    renderBadge();
   }
+  renderControls();
+}
+
+// --- Persistence ---------------------------------------------------------------
+
+function save() {
+  try {
+    const { pitch, current, previous, lastTotal } = state;
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ pitch, current, previous, lastTotal }));
+  } catch (err) {
+    console.warn("Could not save round:", err);
+  }
+}
+
+function load() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
+    if (!saved || !JUDGES.every((j) => saved.current?.[j.id])) return;
+    Object.assign(state, {
+      pitch: saved.pitch,
+      current: saved.current,
+      previous: { ...state.previous, ...saved.previous },
+      lastTotal: saved.lastTotal,
+    });
+    for (const j of JUDGES) state.status[j.id] = "done";
+    els.pitch.value = saved.pitch;
+  } catch (err) {
+    console.warn("Ignoring unreadable saved round:", err);
+  }
+}
+
+function newPitch() {
+  if (state.running) return;
+  try { localStorage.removeItem(STORAGE_KEY); } catch {}
+  for (const j of JUDGES) {
+    state.current[j.id] = null;
+    state.previous[j.id] = null;
+    state.status[j.id] = "waiting";
+  }
+  state.pitch = "";
+  state.lastTotal = null;
+  els.pitch.value = "";
+  els.banner.hidden = true;
+  JUDGES.forEach(renderCard);
   renderBadge();
   renderControls();
 }
@@ -157,6 +208,7 @@ const els = {
   pitch: document.getElementById("pitch"),
   counter: document.getElementById("counter"),
   submit: document.getElementById("submit"),
+  newPitch: document.getElementById("newPitch"),
   badge: document.getElementById("badge"),
   banner: document.getElementById("banner"),
 };
@@ -224,7 +276,8 @@ function renderCard(judge) {
   }
 }
 
-function renderBadge() {
+// `from` = previous total to count up from (only right after a round completes).
+function renderBadge(from = null) {
   const verdicts = JUDGES.map((j) => state.current[j.id]);
   const anyActivity = JUDGES.some((j) => state.status[j.id] !== "waiting");
   if (!anyActivity) {
@@ -244,12 +297,25 @@ function renderBadge() {
     <div class="badge-total">${total}</div>
     <div class="badge-verdict">${advances ? "Would advance" : "Would not advance"}</div>
     <div class="badge-scores">${JUDGES.map((j) => `<span>${j.role} ${state.current[j.id].score}</span>`).join("")}</div>`;
+  if (from != null && from !== total) countUp(els.badge.querySelector(".badge-total"), from, total);
+}
+
+function countUp(el, from, to) {
+  const start = performance.now();
+  const step = (now) => {
+    const t = Math.min(1, (now - start) / COUNT_UP_MS);
+    el.textContent = Math.round(from + (to - from) * t);
+    if (t < 1) requestAnimationFrame(step);
+  };
+  el.textContent = from;
+  requestAnimationFrame(step);
 }
 
 function renderControls() {
   els.pitch.readOnly = state.running;
   els.submit.textContent = state.running ? "Panel is deliberating…" : "Submit to the panel";
   els.submit.disabled = state.running || els.pitch.value.trim().length < MIN_PITCH_CHARS;
+  els.newPitch.disabled = state.running;
   const n = els.pitch.value.length;
   els.counter.className = `counter ${n > MAX_PITCH_CHARS ? "over" : n > WARN_PITCH_CHARS ? "warn" : "ok"}`;
   els.counter.textContent = n > MAX_PITCH_CHARS
@@ -262,11 +328,14 @@ function renderControls() {
 // --- Wiring --------------------------------------------------------------------
 
 buildPanel();
+load();
 JUDGES.forEach(renderCard);
+renderBadge();
 renderControls();
 
 els.pitch.addEventListener("input", renderControls);
 els.submit.addEventListener("click", submitRound);
+els.newPitch.addEventListener("click", newPitch);
 els.panel.addEventListener("click", (e) => {
   const id = e.target.closest("[data-retry]")?.dataset.retry;
   if (id) retryJudge(id);

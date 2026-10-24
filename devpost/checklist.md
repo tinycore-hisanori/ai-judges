@@ -41,7 +41,7 @@ Verification approach: API checks with `curl` against local Ollama, plus a throw
   Learner check: Quit Ollama and submit. You should see the banner and three "left the room" cards. Start Ollama again and hit retry on each card. Then paste a very long pitch and watch the counter change colour.
   Commit: `Handle input limits, per-judge retry, and model-down banner`
 
-- [ ] **4. Your work survives a reload, and the badge counts up**
+- [x] **4. Your work survives a reload, and the badge counts up**
   Becomes usable: Reloading after a round restores the pitch, verdicts and deltas. "New pitch" clears everything back to the waiting panel. The badge number counts from the old total to the new one.
   Why now: These are the two items in the agreed cut order (animation first, then persistence), so they go last, where dropping them costs nothing that came before.
   PRD ref: `prd.md > Persistence and New Pitch`, `prd.md > Total Badge and Verdict`, `prd.md > What We're Building` (cut order)
