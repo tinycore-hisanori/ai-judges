@@ -21,7 +21,7 @@ Verification approach: API checks with `curl` against local Ollama, plus a throw
   Learner check: Run `python -m http.server 8000`, open http://localhost:8000, paste a real pitch and submit. Watch the three judges reveal one by one. Do they sound like three different people with different priorities, and does the stage feel like the panel you pictured?
   Commit: `Add judge panel with sequential local-model verdicts`
 
-- [ ] **2. Resubmit and watch the panel change its mind**
+- [x] **2. Resubmit and watch the panel change its mind**
   Becomes usable: After the first round, the badge shows the total and "Would advance / Would not advance". Edit the pitch and resubmit: each card shows "old → new ▲/▼delta" or "no change", a collapsed "Previous round" holds the old reason and fix, and the judges are told their last score and reason.
   Why now: This is the other half of the kernel, "a number that moves", and the prompts and previous-verdict note need your feedback before the rest of the build depends on them. The early hands-on checkpoint comes right after this slice.
   PRD ref: `prd.md > The Core Journey` (steps 5–7), `prd.md > Total Badge and Verdict`, `prd.md > Resubmit and Score Movement`
