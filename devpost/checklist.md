@@ -22,7 +22,7 @@ Verification approach: API checks with `curl` against local Ollama, plus a throw
   Commit: `Add judge panel with sequential local-model verdicts`
 
 - [x] **2. Resubmit and watch the panel change its mind**
-  Becomes usable: After the first round, the badge shows the total and "Would advance / Would not advance". Edit the pitch and resubmit: each card shows "old → new ▲/▼delta" or "no change", a collapsed "Previous round" holds the old reason and fix, and the judges are told their last score and reason.
+  Becomes usable: After the first round, the badge shows the total and "Would advance / Would not advance". Edit the pitch and resubmit: each card shows "old → new ▲/▼delta" or "no change", a collapsed "Previous round" holds the old reason and fix, and each judge is reminded of its last score (score only, for reference).
   Why now: This is the other half of the kernel, "a number that moves", and the prompts and previous-verdict note need your feedback before the rest of the build depends on them. The early hands-on checkpoint comes right after this slice.
   PRD ref: `prd.md > The Core Journey` (steps 5–7), `prd.md > Total Badge and Verdict`, `prd.md > Resubmit and Score Movement`
   Spec ref: `spec.md > Total Badge (app.js + style.css)`, `spec.md > Judge Definitions (judges.js)`, `spec.md > Round Controller (app.js)`, `spec.md > Judge Card Rendering (app.js + style.css)`, `spec.md > Data Model`
@@ -74,3 +74,4 @@ Activity mode:
 
 ## Revisions
 - Pure-function checks (total, delta, and later `validateVerdict`) run in the browser by importing the live `app.js` module, not in Node — `app.js` builds the panel on load, so it can't be imported in Node without a DOM; the module cache means the import adds no side effects.
+- Judge prompts reworked at the slice-2 checkpoint — learner testing showed anchoring (marketer said the audience was missing when the new pitch named it), scores clustering at 35/45, polite tone, and the engineer inventing requirements. Now: read fresh, previous score only as reference, no citing stated things as missing, quote the weakest sentence, banded rubric stated in the reason, blunt one-sentence reason and fix, engineer judges only what is claimed. Iterating against the test pair also showed the model copying `<placeholder>` templates literally and answering "no change needed", so the prompt uses exact band labels and a worked example, and requires a fix.

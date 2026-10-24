@@ -85,10 +85,15 @@ PRD ref: `prd.md > Screens and Layout`.
   - `engineer` (Vera Lind, seed 101)
   - `marketer` (Marco Reyes, seed 202)
   - `investor` (Ingrid Haas, seed 303)
-- Each `systemPrompt` sets the persona and priority, demands harsh but specific critique, asks for exactly one rejection reason (one line) and one concrete fix (one line), and gives a short scoring rubric for its own lens (e.g. 0–39 fatal, 40–69 weak, 70–100 would advance).
+- Each `systemPrompt` sets the persona and priority and the shared rules:
+  - read the pitch fresh; never cite as missing something the pitch states
+  - be blunt: no praise, no "however"; quote the pitch's weakest sentence
+  - rubric bands: 0–30 absent, 40–60 vague, 70–85 specific and credible, 90+ exceptional; the score must sit inside a band
+  - the reason is one sentence starting "Band X-Y (label):" plus the quote and why; the fix is one concrete sentence, never "no change needed"
+  - the engineer also gets "Judge only what is claimed; do not invent requirements."
 - Exports `buildMessages(judge, pitch, previous)`, which returns:
   - `system`: `judge.systemPrompt`
-  - if `previous` exists, a `system` note: "Last round you gave {score} because: {reason}. Judge the new pitch on its merits; only move your score if the pitch actually changed on that point."
+  - if `previous` exists, a `system` note: "For reference, last round you gave {score}." (score only; the persona prompt already says to read the pitch fresh)
   - `user`: `pitch.slice(0, 1500)`
 
 PRD ref: `prd.md > The Judges`, `prd.md > Resubmit and Score Movement`.
@@ -239,7 +244,7 @@ AiJudgements/
 - **Browser calls Ollama directly, with `callJudge` as the single seam.**
 - **Native `/api/chat` with `format: <JSON schema>`, instead of the OpenAI-compatible `/v1` endpoint.** It's documented to enforce the schema. `scope.md > The POC Boundary` has been updated to match (it previously said "OpenAI-compatible endpoint"). The cheap switch is preserved by `callJudge` owning the request shape, not by the endpoint.
 - **`qwen2.5:14b` on an RTX 4090, judges run one after another.**
-- **Resubmits give each judge its own previous score and reason as a note**, plus "only move your score if the pitch actually changed on that point." You get continuity without rewarding change for its own sake.
+- **Resubmits give each judge only its previous score, as reference** ("For reference, last round you gave N."), after the instruction to read the pitch fresh. Changed at the slice-2 checkpoint: passing the old reason anchored judges to it.
 - **Temperature 0.2 and a fixed seed per judge**, so the same pitch reproduces the same score.
 - **Portraits generated with Codex's image tool** (same style prompt for all three), with initial placeholders first.
 - **Self-hosted OFL fonts**, so the app works fully offline.

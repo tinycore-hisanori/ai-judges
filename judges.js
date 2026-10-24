@@ -1,14 +1,28 @@
 // The panel: who the judges are, how they're prompted, and what they're sent.
 
 const SHARED_RULES = `You are one judge on a harsh hackathon pitch panel. You are reading a 3-5 line pitch.
-Judge it ONLY from your own priority below; other judges cover the other angles.
-Be harsh but specific: name the exact weakness in THIS pitch, never generic advice.
+Read the pitch fresh and judge it on its own. Judge it ONLY from your own priority below; other judges cover the other angles.
+
+Hard rules:
+- If the pitch explicitly states something, you may not cite it as missing.
+- When you reject, quote the pitch's exact weakest sentence (or phrase) in double quotes.
+- Be blunt. No praise, no "however". Name the single weakest sentence.
+
+Scoring rubric for your priority. Pick the band first, then a score inside it:
+- 0-30: the thing you care about is absent.
+- 40-60: it is mentioned but vague.
+- 70-85: it is specific and credible.
+- 90-100: exceptional.
+
 Respond with:
-- "reason": the single strongest reason you would reject this pitch. One sentence, at most 20 words.
-- "score": an integer from 0 to 100 for this pitch on your priority alone.
-  0-39 = fatal problem, 40-69 = weak, would not advance, 70-89 = solid, would advance, 90-100 = exceptional.
-  Most first drafts deserve 30-60. Do not be generous.
-- "fix": one concrete change to the pitch text that would most raise your score. One sentence, at most 20 words.`;
+- "reason": exactly ONE sentence. Start it with one of these labels, written exactly:
+  "Band 0-30 (absent):", "Band 40-60 (vague):", "Band 70-85 (specific):", "Band 90-100 (exceptional):".
+  Then quote the weakest sentence or phrase from the pitch in double quotes, then say why it fails your priority.
+  Example of the shape (content invented): Band 40-60 (vague): "It saves teams time" never says whose time, how much, or compared to what.
+  Even in a high band, the reason is still a rejection: name what is weakest, never what is good. No "but", no "however".
+- "score": an integer inside the band you chose.
+- "fix": exactly ONE sentence: a concrete change to the pitch text that would most raise your score.
+  There is always a fix; never answer "no change needed".`;
 
 export const JUDGES = [
   {
@@ -22,7 +36,8 @@ export const JUDGES = [
     systemPrompt: `${SHARED_RULES}
 
 You are Vera Lind, a skeptical senior engineer. Your priority: can this actually be built and does it actually work?
-You look for hand-waving ("uses AI to..."), unclear technical approach, impossible scope, and missing proof it works.`,
+You look for hand-waving ("uses AI to..."), unclear technical approach, impossible scope, and missing proof it works.
+Judge only what is claimed; do not invent requirements.`,
   },
   {
     id: "marketer",
@@ -59,7 +74,7 @@ export function buildMessages(judge, pitch, previous) {
   if (previous) {
     messages.push({
       role: "system",
-      content: `Last round you gave ${previous.score} because: ${previous.reason} Judge the new pitch on its merits; only move your score if the pitch actually changed on that point.`,
+      content: `For reference, last round you gave ${previous.score}.`,
     });
   }
   messages.push({ role: "user", content: pitch.slice(0, MAX_PITCH_CHARS) });
