@@ -180,6 +180,31 @@ body {
 .btn.ghost { background: transparent; color: var(--card); border: 1px solid var(--muted); }
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
+.delta { font-family: var(--display); font-size: 1.5rem; letter-spacing: 0.03em; }
+.delta.up { color: var(--up); }
+.delta.down { color: var(--down); }
+.delta.same { color: var(--muted); }
+
+.previous { margin-top: auto; font-size: 0.85rem; color: #5a554b; }
+.previous summary { cursor: pointer; color: var(--muted); }
+.previous p { margin: 6px 0 0; }
+
 /* --- Total badge --- */
-.badge { margin-top: 28px; text-align: center; }
+.badge {
+  margin: 28px auto 0;
+  max-width: 420px;
+  text-align: center;
+  padding: 18px 24px;
+  border-radius: 12px;
+  border: 2px solid var(--muted);
+}
 .badge.empty { display: none; }
+.badge.pending { color: var(--muted); }
+.badge-wait { font-family: var(--display); font-size: 1.8rem; letter-spacing: 0.04em; }
+.badge.advance { border-color: var(--up); background: rgba(47, 158, 91, 0.15); }
+.badge.reject { border-color: var(--down); background: rgba(200, 64, 47, 0.15); }
+.badge-total { font-family: var(--display); font-size: 5rem; line-height: 0.9; }
+.badge-verdict { font-family: var(--display); font-size: 2rem; letter-spacing: 0.05em; }
+.badge.advance .badge-verdict { color: var(--up); }
+.badge.reject .badge-verdict { color: var(--down); }
+.badge-scores { display: flex; justify-content: center; gap: 16px; margin-top: 8px; font-size: 0.85rem; color: #cfc8b8; }

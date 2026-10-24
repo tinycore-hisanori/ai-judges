@@ -11,7 +11,7 @@ Verification approach: API checks with `curl` against local Ollama, plus a throw
 
 ## Slices
 
-- [ ] **1. Paste a pitch and the three judges deliver verdicts, one at a time**
+- [x] **1. Paste a pitch and the three judges deliver verdicts, one at a time**
   Becomes usable: The stage page with all three judges waiting. You paste a pitch, press "Submit to the panel", and Vera, Marco and Ingrid reveal left to right, each with a score, a one-line reason and one fix, from the real local model.
   Why now: It's the riskiest part (does `/api/chat` honour the schema, does CORS allow `localhost:8000`) and the heart of the kernel (three conflicting judges), so both get proven first. Scaffolding and fonts come along because this slice needs somewhere to render.
   PRD ref: `prd.md > The Core Journey` (steps 1–4), `prd.md > Screens and Layout`, `prd.md > The Judges`, `prd.md > Deliberation and Reveal`
@@ -73,3 +73,4 @@ Reflection:
 Activity mode:
 
 ## Revisions
+- Pure-function checks (total, delta, and later `validateVerdict`) run in the browser by importing the live `app.js` module, not in Node — `app.js` builds the panel on load, so it can't be imported in Node without a DOM; the module cache means the import adds no side effects.

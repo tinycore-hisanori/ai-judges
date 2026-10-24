@@ -54,9 +54,14 @@ You look for no business model, no paying customer, a tiny market, and nothing t
 
 export const MAX_PITCH_CHARS = 1500;
 
-export function buildMessages(judge, pitch) {
-  return [
-    { role: "system", content: judge.systemPrompt },
-    { role: "user", content: pitch.slice(0, MAX_PITCH_CHARS) },
-  ];
+export function buildMessages(judge, pitch, previous) {
+  const messages = [{ role: "system", content: judge.systemPrompt }];
+  if (previous) {
+    messages.push({
+      role: "system",
+      content: `Last round you gave ${previous.score} because: ${previous.reason} Judge the new pitch on its merits; only move your score if the pitch actually changed on that point.`,
+    });
+  }
+  messages.push({ role: "user", content: pitch.slice(0, MAX_PITCH_CHARS) });
+  return messages;
 }

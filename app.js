@@ -3,6 +3,7 @@ import { JUDGES, buildMessages } from "./judges.js";
 const OLLAMA_URL = "http://localhost:11434/api/chat";
 const MODEL = "qwen2.5:14b";
 const MIN_PITCH_CHARS = 20;
+const ADVANCE_THRESHOLD = 70;
 
 const VERDICT_SCHEMA = {
   type: "object",
@@ -19,9 +20,25 @@ const VERDICT_SCHEMA = {
 const state = {
   pitch: "",
   current: { engineer: null, marketer: null, investor: null },
+  previous: { engineer: null, marketer: null, investor: null },
   status: { engineer: "waiting", marketer: "waiting", investor: "waiting" },
+  lastTotal: null,
   running: false,
 };
+
+// --- Scoring rules (pure) ----------------------------------------------------
+
+export function panelTotal(scores) {
+  const total = Math.round(scores.reduce((a, b) => a + b, 0) / scores.length);
+  return { total, advances: total >= ADVANCE_THRESHOLD };
+}
+
+export function scoreDelta(prev, next) {
+  if (prev == null) return null;
+  const d = next - prev;
+  if (d === 0) return { kind: "same", text: "no change" };
+  return d > 0 ? { kind: "up", text: `▲${d}` } : { kind: "down", text: `▼${-d}` };
+}
 
 // --- Model access (the one seam for a future provider switch) -------------
 
@@ -56,7 +73,7 @@ async function runJudge(judge) {
   state.status[judge.id] = "reading";
   renderCard(judge);
   try {
-    const raw = await callJudge(judge, buildMessages(judge, state.pitch));
+    const raw = await callJudge(judge, buildMessages(judge, state.pitch, state.previous[judge.id]));
     state.current[judge.id] = validateVerdict(raw);
     state.status[judge.id] = "done";
   } catch (err) {
@@ -71,16 +88,30 @@ async function submitRound() {
   state.running = true;
   state.pitch = els.pitch.value;
   for (const judge of JUDGES) {
+    // Each judge's last completed verdict becomes the one we compare against.
+    if (state.current[judge.id]) state.previous[judge.id] = state.current[judge.id];
+    state.current[judge.id] = null;
     state.status[judge.id] = "reading";
     renderCard(judge);
   }
   renderControls();
+  renderBadge();
 
   for (const judge of JUDGES) {
     await runJudge(judge);
+    renderBadge();
   }
 
+  finishRound();
+}
+
+function finishRound() {
   state.running = false;
+  const verdicts = JUDGES.map((j) => state.current[j.id]);
+  if (verdicts.every(Boolean)) {
+    state.lastTotal = panelTotal(verdicts.map((v) => v.score)).total;
+  }
+  renderBadge();
   renderControls();
 }
 
@@ -91,6 +122,7 @@ const els = {
   pitch: document.getElementById("pitch"),
   counter: document.getElementById("counter"),
   submit: document.getElementById("submit"),
+  badge: document.getElementById("badge"),
 };
 
 function portraitHTML(judge) {
@@ -132,11 +164,48 @@ function renderCard(judge) {
     body.innerHTML = `<p class="status">The judge left the room</p>`;
   } else {
     const v = state.current[judge.id];
+    const prev = state.previous[judge.id];
+    const delta = scoreDelta(prev?.score, v.score);
+    const deltaHTML = !delta
+      ? ""
+      : delta.kind === "same"
+        ? `<span class="delta same">no change</span>`
+        : `<span class="delta ${delta.kind}">${prev.score} → ${v.score} ${delta.text}</span>`;
+    const previousHTML = prev
+      ? `<details class="previous">
+           <summary>Previous round</summary>
+           <p><strong>${prev.score}/100</strong> — ${escapeHTML(prev.reason)}</p>
+           <p class="fix">${escapeHTML(prev.fix)}</p>
+         </details>`
+      : "";
     body.innerHTML = `
-      <div class="score-row"><span class="score">${v.score}<small>/100</small></span></div>
+      <div class="score-row"><span class="score">${v.score}<small>/100</small></span>${deltaHTML}</div>
       <p class="reason">${escapeHTML(v.reason)}</p>
-      <p class="fix">${escapeHTML(v.fix)}</p>`;
+      <p class="fix">${escapeHTML(v.fix)}</p>
+      ${previousHTML}`;
   }
+}
+
+function renderBadge() {
+  const verdicts = JUDGES.map((j) => state.current[j.id]);
+  const anyActivity = JUDGES.some((j) => state.status[j.id] !== "waiting");
+  if (!anyActivity) {
+    els.badge.className = "badge empty";
+    els.badge.innerHTML = "";
+    return;
+  }
+  const missing = verdicts.filter((v) => !v).length;
+  if (missing) {
+    els.badge.className = "badge pending";
+    els.badge.innerHTML = `<span class="badge-wait">Waiting for ${missing} judge${missing === 1 ? "" : "s"}</span>`;
+    return;
+  }
+  const { total, advances } = panelTotal(verdicts.map((v) => v.score));
+  els.badge.className = `badge ${advances ? "advance" : "reject"}`;
+  els.badge.innerHTML = `
+    <div class="badge-total">${total}</div>
+    <div class="badge-verdict">${advances ? "Would advance" : "Would not advance"}</div>
+    <div class="badge-scores">${JUDGES.map((j) => `<span>${j.role} ${state.current[j.id].score}</span>`).join("")}</div>`;
 }
 
 function renderControls() {
