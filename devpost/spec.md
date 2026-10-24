@@ -26,7 +26,7 @@ PRD ref: `prd.md > The Core Journey`.
 3. **Submit.** `app.js` locks the box, changes the button to "Panel is deliberating…", sets all cards to Reading…, and sets the badge to "Waiting for 3 judges." Each judge's last completed verdict becomes "previous" (in memory).
 4. **Judges run in sequence.** For each judge in `JUDGES` order (engineer → marketer → investor):
    - `buildMessages(judge, pitch, previous)` in `judges.js` builds the persona system prompt, an optional "last round" note, and the pitch, cut to 1500 characters.
-   - `callJudge(judge, messages)` in `app.js` POSTs to Ollama `/api/chat` with the JSON schema, temperature 0.2, and the judge's seed.
+   - `callJudge(judge, messages)` in `app.js` POSTs to Ollama `/api/chat` with the JSON schema, temperature 0.2, the judge's seed, and `num_ctx: 4096` (the default 32k context pushed 32B partly onto the CPU).
    - `validateVerdict()` checks the answer. A good verdict fills that card with the score, reason, fix and delta. A bad one sets that card to "left the room."
    - The badge updates its "Waiting for N judges" count.
 5. **Round ends.** When the loop finishes:
@@ -217,7 +217,7 @@ AiJudgements/
       },
       "required": ["evidence", "band", "reason", "score", "fix"]
     },
-    "options": { "temperature": 0.2, "seed": 101 }
+    "options": { "temperature": 0.2, "seed": 101, "num_ctx": 4096 }
   }
   ```
 - **Evidence-first order:** the model fills the properties in schema order, so it copies the pitch sentence that addresses its priority (`evidence`, `""` if none) and picks a `band` *before* writing the reason and score. This was the only variant that stopped the marketer claiming a stated audience was missing. `evidence` and `band` aren't displayed or stored.

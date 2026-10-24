@@ -59,7 +59,8 @@ async function callJudge(judge, messages, seed = judge.seed) {
       messages,
       stream: false,
       format: VERDICT_SCHEMA,
-      options: { temperature: 0.2, seed },
+      // 4096 tokens is plenty for prompt + 1500-char pitch, and keeps 32B on the GPU.
+      options: { temperature: 0.2, seed, num_ctx: 4096 },
     }),
   });
   if (!res.ok) throw new Error(`Ollama HTTP ${res.status}`);
