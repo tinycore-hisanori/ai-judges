@@ -10,7 +10,7 @@ Runs entirely on your PC against a local model: your pitch never leaves the mach
 ## Prerequisites
 
 - [Ollama](https://ollama.com) installed and running
-- The model, pulled once: `ollama pull qwen2.5:32b`
+- The model, pulled once: `ollama pull qwen2.5:32b`. It needs about 20 GB of free GPU memory (built on an RTX 4090, 24 GB). On a smaller GPU, set `MODEL = "qwen2.5:14b"` in `judges.js` (about 10 GB); it runs, but its judging is noticeably weaker.
 - Python 3 (only for the static file server), or any static server
 
 ## Run
