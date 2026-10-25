@@ -95,7 +95,7 @@ PRD ref: `prd.md > Screens and Layout`.
   - no explicit language rule: 32B already answers in the pitch's language. An explicit "answer in the language of the pitch" line was tried and dropped, because it moved the engineer's round-3 verdict on the demo story from 75 to 50 (wherever the line was placed). The optional **Verdict Language Selector** below adds a fixed-language line only when the user picks one
   - the engineer also gets "Judge only what is claimed; do not invent requirements." and "If the pitch states what the product does or how it works, the band cannot be 0-30; 'absent' is only for pitches that never say what the thing does." (stopped a 45 → 20 flip on the recipe rewrite)
   - the marketer also gets "If the idea resembles a well-known existing product, name it and ask what's different."
-- Exports `VERDICT_LANG_LINES` (`auto`: nothing, `en`: "Answer in English.", `ja`: "日本語で答えてください。").
+- Exports `VERDICT_LANG_LINES` (`auto`: nothing, `en`: "Hard rule: Write reason and fix in English. Keep the quoted evidence in its original language.", `ja`: "Hard rule: Write reason and fix in Japanese. Keep the quoted evidence in its original language."), added as the last paragraph of the system prompt.
 - Exports `buildMessages(judge, pitch, previous, verdictLang = "auto")`, which returns:
   - `system`: `judge.systemPrompt`, plus the `VERDICT_LANG_LINES` line on a new line when `verdictLang` isn't `auto`
   - if `previous` exists, a `system` note: "For reference, last round you gave {score}." (score only; the persona prompt already says to read the pitch fresh)
@@ -162,7 +162,7 @@ An EN / JA toggle at the top right (above the title on phones). English is the d
 Added after the PoC review (it was deferred in `prd.md > Deferred From the POC`).
 
 ### Verdict Language Selector (`index.html` + `app.js` + `judges.js`)
-A "Verdicts in" select next to the EN / JA toggle: Auto (language of the pitch) / English / 日本語. Default Auto, saved under `localStorage` key `aiJudges.verdictLang`, and disabled while a round runs. Auto sends exactly the prompts above (so the demo story is unaffected); English or 日本語 appends "Answer in English." or "日本語で答えてください。" to every judge's system prompt. Fixing the language can shift scores a little, the way the dropped "language of the pitch" line did.
+A "Verdicts in" select next to the EN / JA toggle: Auto (language of the pitch) / English / 日本語. Default Auto, saved under `localStorage` key `aiJudges.verdictLang`, and disabled while a round runs. Auto sends exactly the prompts above (so the demo story is unaffected); English or 日本語 adds a hard rule as the last paragraph of every judge's system prompt: "Write reason and fix in English/Japanese. Keep the quoted evidence in its original language." Because the language is part of the prompt (the seed stays the same), switching it and resubmitting an unchanged pitch produces a fresh verdict. Fixing the language shifts scores: on the demo story, 日本語 gave 28 → 47 → 75 (Would advance) and English gave 28 → 47 → 65 (the engineer stays at 45), so the demo is recorded with Auto.
 
 ### All-Fail Banner (`index.html` + `app.js`)
 Shown when all three judges failed in the latest attempt. Hidden on the next submit, or as soon as any judge succeeds.

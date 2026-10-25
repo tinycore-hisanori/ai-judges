@@ -83,15 +83,16 @@ export const MAX_PITCH_CHARS = 6000;
 
 // "auto" adds nothing: the judges already answer in the pitch's language,
 // and an explicit "answer in the pitch's language" line shifted the demo scores.
+// The line goes last in the system prompt so it overrides the English rules above.
 export const VERDICT_LANG_LINES = {
   auto: "",
-  en: "Answer in English.",
-  ja: "日本語で答えてください。",
+  en: "Hard rule: Write reason and fix in English. Keep the quoted evidence in its original language.",
+  ja: "Hard rule: Write reason and fix in Japanese. Keep the quoted evidence in its original language.",
 };
 
 export function buildMessages(judge, pitch, previous, verdictLang = "auto") {
   const langLine = VERDICT_LANG_LINES[verdictLang] ?? "";
-  const messages = [{ role: "system", content: langLine ? `${judge.systemPrompt}\n${langLine}` : judge.systemPrompt }];
+  const messages = [{ role: "system", content: langLine ? `${judge.systemPrompt}\n\n${langLine}` : judge.systemPrompt }];
   if (previous) {
     messages.push({
       role: "system",
