@@ -7,7 +7,7 @@ Runs entirely on your PC against a local model: your pitch never leaves the mach
 ## Prerequisites
 
 - [Ollama](https://ollama.com) installed and running
-- The model, pulled once: `ollama pull qwen2.5:14b`
+- The model, pulled once: `ollama pull qwen2.5:32b`
 - Python 3 (only for the static file server), or any static server
 
 ## Run

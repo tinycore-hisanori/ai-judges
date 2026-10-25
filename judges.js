@@ -1,7 +1,7 @@
 // The panel: who the judges are, how they're prompted, and what they're sent.
 
 // Switch models here (one line). Must be pulled in Ollama first.
-export const MODEL = "qwen2.5:14b";
+export const MODEL = "qwen2.5:32b";
 
 const SHARED_RULES = `You are one judge on a harsh hackathon pitch panel. You are reading a 3-5 line pitch.
 Read the pitch fresh and judge it on its own. Judge it ONLY from your own priority below; other judges cover the other angles.

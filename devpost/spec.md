@@ -40,7 +40,7 @@ PRD ref: `prd.md > The Core Journey`.
 ## Stack
 - **Plain HTML + CSS + vanilla JavaScript (ES modules, no TypeScript, no build step).** Your choice. A build step is overhead for one page in a one-day project. You'd use Vite for games, not here. The tradeoff: DOM updates are hand-written.
 - **Static server:** `python -m http.server 8000` (or `npx serve`). It's needed because ES modules and Ollama's CORS allowlist work for `http://localhost` origins, not `file://`.
-- **Ollama, native API**, model **`qwen2.5:14b`**, running on an RTX 4090 (24 GB). Docs: https://github.com/ollama/ollama/blob/main/docs/api.md · structured outputs: https://ollama.com/blog/structured-outputs · CORS/`OLLAMA_ORIGINS`: https://github.com/ollama/ollama/blob/main/docs/faq.md
+- **Ollama, native API**, model **`qwen2.5:32b`** (Q4, ~20 GB with `num_ctx: 4096`, fully on the GPU), running on an RTX 4090 (24 GB). Docs: https://github.com/ollama/ollama/blob/main/docs/api.md · structured outputs: https://ollama.com/blog/structured-outputs · CORS/`OLLAMA_ORIGINS`: https://github.com/ollama/ollama/blob/main/docs/faq.md
 - **Fonts:** Bebas Neue (https://fonts.google.com/specimen/Bebas+Neue) and Inter (https://rsms.me/inter/), both under the OFL licence, self-hosted as woff2.
 - **Portraits:** PNGs you generate with Codex's image tool. The build uses placeholders until then.
 
@@ -48,7 +48,7 @@ PRD ref: `prd.md > The Core Journey`.
 
 ## Where It Runs and How Someone Tries It
 - **Runtime:** a desktop browser on your Windows PC, with Ollama running locally.
-- **Prerequisites:** Ollama installed and running, and `ollama pull qwen2.5:14b` done once.
+- **Prerequisites:** Ollama installed and running, and `ollama pull qwen2.5:32b` done once.
 - **Start:**
   ```
   python -m http.server 8000
@@ -199,7 +199,7 @@ AiJudgements/
 - **Request:**
   ```json
   {
-    "model": "qwen2.5:14b",
+    "model": "qwen2.5:32b",
     "messages": [
       { "role": "system", "content": "<persona prompt>" },
       { "role": "system", "content": "Last round you gave 58 because: ... (only on resubmit)" },
@@ -246,7 +246,7 @@ AiJudgements/
 - **Plain HTML/CSS/JS, served statically.** No build overhead for a one-day page.
 - **Browser calls Ollama directly, with `callJudge` as the single seam.**
 - **Native `/api/chat` with `format: <JSON schema>`, instead of the OpenAI-compatible `/v1` endpoint.** It's documented to enforce the schema. `scope.md > The POC Boundary` has been updated to match (it previously said "OpenAI-compatible endpoint"). The cheap switch is preserved by `callJudge` owning the request shape, not by the endpoint.
-- **`qwen2.5:14b` on an RTX 4090, judges run one after another.** The model is one constant (`MODEL` in `judges.js`). At the slice-2 checkpoint 14B couldn't reliably tell whether something was already in the pitch; `qwen2.5:32b` is being downloaded and the final model will be chosen from a comparison on three tests (recipe pair, the learner's real pair, the marketer test).
+- **`qwen2.5:32b` on an RTX 4090, judges run one after another.** The model is one constant (`MODEL` in `judges.js`). Chosen over 14B from a comparison on the recipe pair, the learner's real pair and the marketer test: only 32B passed the marketer test (it stopped calling a stated audience missing, and the investor stayed low). Cost: ~2.7 s per judge vs ~1.4 s for 14B, both fully on the GPU at `num_ctx: 4096`.
 - **Evidence-first verdict schema, plus one automatic retry (seed + 1) on an unusable answer.**
 - **Resubmits give each judge only its previous score, as reference** ("For reference, last round you gave N."), after the instruction to read the pitch fresh. Changed at the slice-2 checkpoint: passing the old reason anchored judges to it.
 - **Temperature 0.2 and a fixed seed per judge**, so the same pitch reproduces the same score.
