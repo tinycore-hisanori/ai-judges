@@ -57,7 +57,7 @@ PRD ref: `prd.md > The Core Journey`.
 - **Demo recording:** paste a real weak pitch and submit. You get about 15 s of left-to-right reveals and a red badge (e.g. 42). Then rewrite three sentences using the fixes and resubmit. Deltas appear and the badge counts up to green (≥ 70). Optionally, stop Ollama and submit to show the banner.
 - **Submission:** a short demo video plus a public GitHub repo with a README covering the prerequisites and the start command above. There's **no deployment**: the model runs on your PC, and "never leaves your PC" is part of the identity.
 - **Public repository:** https://github.com/tinycore-hisanori/ai-judges (branch `main`; verified anonymously after the first push).
-- **Demo video:** not yet recorded.
+- **Demo video:** https://youtu.be/zHcQsPfdxQE (unlisted; reachable without login).
 
 ## Look and Feel
 Carried forward from `prd.md > Look and Feel`.

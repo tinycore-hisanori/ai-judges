@@ -4,6 +4,8 @@ Three AI judges (an engineer, a marketer and an investor) harshly critique your 
 
 Runs entirely on your PC against a local model: your pitch never leaves the machine.
 
+**Demo video:** https://youtu.be/zHcQsPfdxQE
+
 - **Any pitch language.** The judges generally answer in the language of the pitch: paste a Japanese pitch and you get Japanese verdicts. (This is the model's own behaviour, not a translation step, so an occasional sentence can come back in English.)
 - **Japanese UI.** The EN / JA toggle at the top right switches the interface text. It doesn't change the judges' language; that follows the pitch.
 
