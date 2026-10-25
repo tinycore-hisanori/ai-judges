@@ -203,8 +203,12 @@ class UnusableVerdict extends Error {}
 
 const normalizeSpace = (s) => s.replace(/\s+/g, " ").trim();
 
+// Quotes keep the document's own language, so only the judge's own words are checked.
+const hasJapanese = (s) => /[぀-ヿ㐀-鿿]/.test(s.replace(/"[^"]*"|“[^”]*”|「[^」]*」|『[^』]*』/g, ""));
+
 // `documents`: what the judge was sent in submission review ([{ label, text }], "Pitch" first), else null.
-export function validateVerdict(v, documents = null) {
+// `lang`: "en" or "ja" when a verdict language is selected, else null; reason and fix must be in it.
+export function validateVerdict(v, documents = null, lang = null) {
   const fail = (msg) => { throw new UnusableVerdict(msg); };
   if (!v || typeof v !== "object") fail("verdict is not an object");
   if (!Number.isInteger(v.score) || v.score < 0 || v.score > 100) fail("score out of range");
@@ -212,6 +216,8 @@ export function validateVerdict(v, documents = null) {
   if (/["“「]\s*["”」]/.test(v.reason)) fail("empty quote in reason");
   if (typeof v.fix !== "string" || !v.fix.trim()) fail("empty fix");
   if (v.fix.trim().length > MAX_FIX_CHARS) fail("fix is a rewrite, not one change");
+  if (lang && hasJapanese(v.reason) !== (lang === "ja")) fail(`reason is not in ${lang}`);
+  if (lang && hasJapanese(v.fix) !== (lang === "ja")) fail(`fix is not in ${lang}`);
   const verdict = { score: v.score, reason: v.reason.trim(), fix: v.fix.trim() };
   if (!documents) return verdict;
   if (typeof v.criterion !== "string" || !v.criterion.trim()) fail("empty criterion");
@@ -230,14 +236,15 @@ async function askJudge(judge) {
   const { submission } = state;
   const messages = buildMessages(judge, state.pitch, state.previous[judge.id], { verdictLang, submission });
   const documents = submission && submissionDocuments(state.pitch, submission);
+  const replyLang = verdictLang === "auto" ? null : verdictLang;
   try {
-    return validateVerdict(await callJudge(judge, messages, judge.seed, submission, documents), documents);
+    return validateVerdict(await callJudge(judge, messages, judge.seed, submission, documents), documents, replyLang);
   } catch (err) {
     if (!(err instanceof UnusableVerdict)) throw err;
     // One automatic retry for an unusable answer. A different seed, or the
     // deterministic model would repeat the same answer.
     console.warn(`${judge.name} gave an unusable answer (${err.message}); retrying once`);
-    return validateVerdict(await callJudge(judge, messages, judge.seed + 1, submission, documents), documents);
+    return validateVerdict(await callJudge(judge, messages, judge.seed + 1, submission, documents), documents, replyLang);
   }
 }
 

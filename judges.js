@@ -41,7 +41,13 @@ export const JUDGES = [
     color: "#5b7a99",
     portrait: "assets/portraits/vera.png",
     seed: 101,
-    homeCriterion: { name: "Design", focus: "a complete, coherent product" },
+    homeCriterion: {
+      name: "Design",
+      focus: "a complete, coherent product",
+      question: "is this a complete, coherent product someone can use end to end, not just a technical proof of concept, and is that shown?",
+    },
+    // Submission review keeps who the judge is but not their priority: the criterion replaces it.
+    submissionPersona: "You are Vera Lind, a skeptical senior engineer.",
     systemPrompt: `${SHARED_RULES}
 
 You are Vera Lind, a skeptical senior engineer. Your priority: can this actually be built and does it actually work?
@@ -58,7 +64,13 @@ If the pitch states what the product does or how it works, the band cannot be 0-
     color: "#b5563b",
     portrait: "assets/portraits/marco.png",
     seed: 202,
-    homeCriterion: { name: "Presentation", focus: "the problem, who it is for, and why it matters" },
+    homeCriterion: {
+      name: "Presentation",
+      focus: "the problem, who it is for, and why it matters",
+      question: "does the submission clearly say what problem is solved, who it is for, and why it matters, and is it easy to follow?",
+    },
+    // Submission review keeps who the judge is but not their priority: the criterion replaces it.
+    submissionPersona: "You are Marco Reyes, a blunt product marketer.",
     systemPrompt: `${SHARED_RULES}
 
 You are Marco Reyes, a blunt product marketer. Your priority: who would actually use this, and why would they care?
@@ -74,7 +86,13 @@ If the idea resembles a well-known existing product, name it and ask what's diff
     color: "#3f6b4f",
     portrait: "assets/portraits/ingrid.png",
     seed: 303,
-    homeCriterion: { name: "Innovation/Idea", focus: "how novel it is next to existing concepts" },
+    homeCriterion: {
+      name: "Innovation/Idea",
+      focus: "how novel it is next to existing concepts",
+      question: "what is new here compared with existing tools, and is that stated?",
+    },
+    // Submission review keeps who the judge is but not their priority: the criterion replaces it.
+    submissionPersona: "You are Ingrid Haas, an unimpressed early-stage investor.",
     systemPrompt: `${SHARED_RULES}
 
 You are Ingrid Haas, an unimpressed early-stage investor. Your priority: how does this make money, and is it worth anything?
@@ -108,7 +126,8 @@ Innovation/Idea — How creative and novel is the concept and does the project d
 Presentation — Does the video clearly demonstrate the project working end-to-end? Does the pitch communicate what problem is solved, who it's for, and why it matters? Is the overall presentation easy to follow?`;
 
 const SUBMISSION_RULES = `This time you also get the team's submission documents and the hackathon's judging criteria.
-Keep your persona and your priority; the criteria do not replace them.
+Your criterion is the ONLY thing you score. Your profession colors your tone and what you notice, but you may not reject for anything outside the criterion.
+Wherever the rules above say "your priority", read it as your criterion.
 Judge evidence against the criteria, not volume. Restating the same point in another document earns nothing.
 Each document sits between "=== <name> ===" and "=== End of <name> ===". Headings inside a document are part of it, not separate documents.
 Extra fields:`;
@@ -117,8 +136,9 @@ const sourceRule = (names) =>
 - "source": the name of the document that evidence was copied from, exactly one of: ${names.map((n) => `"${n}"`).join(", ")}.`;
 
 const FREE_CRITERION_RULE = `- "criterion": the ONE judging criterion your verdict maps to, written exactly as named in the criteria (for example "Presentation").`;
-const homeCriterionRule = ({ name, focus }) =>
-  `- "criterion": always "${name}". It is your home criterion: judge ${focus}. You may mention a second criterion in the reason, but this field stays "${name}".`;
+const homeCriterionRule = ({ name, focus, question }) =>
+  `- "criterion": always "${name}". It is your home criterion: judge ${focus}. You may mention a second criterion in the reason, but this field stays "${name}".
+For ${name} the question is: ${question}`;
 const REASON_SOURCE_RULE = `In "reason", name the document you quote from, e.g. In the Project story, "..." never says ...`;
 
 // Submission review is on only when at least one attachment has text.
@@ -167,7 +187,7 @@ export function buildMessages(judge, pitch, previous, { verdictLang = "auto", su
   // A selected language equal to the pitch's own adds nothing, so it scores exactly like Auto.
   const langLine = verdictLang === pitchLanguage(pitch) ? "" : VERDICT_LANG_LINES[verdictLang] ?? "";
   const parts = submission && submissionParts(pitch, submission);
-  let system = judge.systemPrompt;
+  let system = parts ? `${SHARED_RULES}\n\n${judge.submissionPersona}` : judge.systemPrompt;
   if (parts) {
     const home = homeCriterion(judge, criterionNames(parts.criteria));
     const criterionRule = home ? homeCriterionRule({ ...judge.homeCriterion, name: home }) : FREE_CRITERION_RULE;
