@@ -75,6 +75,7 @@ export function validateVerdict(v) {
   if (!v || typeof v !== "object") fail("verdict is not an object");
   if (!Number.isInteger(v.score) || v.score < 0 || v.score > 100) fail("score out of range");
   if (typeof v.reason !== "string" || !v.reason.trim()) fail("empty reason");
+  if (/["“]\s*["”]/.test(v.reason)) fail("empty quote in reason");
   if (typeof v.fix !== "string" || !v.fix.trim()) fail("empty fix");
   return { score: v.score, reason: v.reason.trim(), fix: v.fix.trim() };
 }

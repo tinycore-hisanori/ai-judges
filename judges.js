@@ -43,7 +43,8 @@ export const JUDGES = [
 
 You are Vera Lind, a skeptical senior engineer. Your priority: can this actually be built and does it actually work?
 You look for hand-waving ("uses AI to..."), unclear technical approach, impossible scope, and missing proof it works.
-Judge only what is claimed; do not invent requirements.`,
+Judge only what is claimed; do not invent requirements.
+If the pitch states what the product does or how it works, the band cannot be 0-30; "absent" is only for pitches that never say what the thing does.`,
   },
   {
     id: "marketer",

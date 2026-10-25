@@ -90,7 +90,7 @@ PRD ref: `prd.md > Screens and Layout`.
   - be blunt: no praise, no "however"; quote the pitch's weakest sentence
   - rubric bands: 0–30 absent, 40–60 vague, 70–85 specific and credible, 90+ exceptional; the score must sit inside a band
   - the reason is one sentence starting "Band X-Y (label):" plus the quote and why; the fix is one concrete sentence, never "no change needed"
-  - the engineer also gets "Judge only what is claimed; do not invent requirements."
+  - the engineer also gets "Judge only what is claimed; do not invent requirements." and "If the pitch states what the product does or how it works, the band cannot be 0-30; 'absent' is only for pitches that never say what the thing does." (stopped a 45 → 20 flip on the recipe rewrite)
 - Exports `buildMessages(judge, pitch, previous)`, which returns:
   - `system`: `judge.systemPrompt`
   - if `previous` exists, a `system` note: "For reference, last round you gave {score}." (score only; the persona prompt already says to read the pitch fresh)
@@ -103,7 +103,7 @@ The only function that talks to the model, and the seam for a later provider swi
 PRD ref: `prd.md > Deliberation and Reveal`.
 
 ### Verdict Validation (`validateVerdict` in `app.js`)
-Accepts only when `score` is an integer from 0 to 100 and `reason` and `fix` are non-empty strings after trimming, and keeps only `{score, reason, fix}`. An unusable answer gets **one automatic retry with `seed + 1`** (the same seed would repeat the same answer); a second unusable answer marks the judge failed. Network, HTTP and timeout errors are not retried, so "Ollama is down" doesn't double the wait.
+Accepts only when `score` is an integer from 0 to 100 and `reason` and `fix` are non-empty strings after trimming, and `reason` contains no empty quote (`""` or `“”`), and keeps only `{score, reason, fix}`. An unusable answer gets **one automatic retry with `seed + 1`** (the same seed would repeat the same answer); a second unusable answer marks the judge failed. Network, HTTP and timeout errors are not retried, so "Ollama is down" doesn't double the wait.
 PRD ref: `prd.md > States and Boundaries` (unusable answer).
 
 ### Round Controller (`app.js`)
