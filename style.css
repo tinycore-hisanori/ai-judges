@@ -218,10 +218,31 @@ body {
 .counter.over { color: #ff6b57; font-weight: 600; }
 
 /* --- Language toggle --- */
-.lang-toggle {
+.top-controls {
   position: absolute;
   top: 16px;
   right: 16px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.verdict-lang {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font: 0.8rem/1 var(--body);
+  color: #cfc8b8;
+}
+.verdict-lang select {
+  font: 600 0.8rem/1 var(--body);
+  padding: 5px 6px;
+  background: var(--bg);
+  color: #cfc8b8;
+  border: 1px solid var(--muted);
+  border-radius: 6px;
+  cursor: pointer;
+}
+.lang-toggle {
   display: flex;
   border: 1px solid var(--muted);
   border-radius: 6px;
@@ -239,7 +260,7 @@ body {
 .lang-toggle button[aria-pressed="true"] { background: var(--gold); color: var(--bg); }
 @media (max-width: 760px) {
   /* No room beside the title on a phone: sit above it, right-aligned. */
-  .lang-toggle { position: static; width: max-content; margin: 0 0 12px auto; }
+  .top-controls { position: static; flex-wrap: wrap; justify-content: flex-end; margin: 0 0 12px; }
 }
 
 /* Japanese: Bebas Neue and Inter have no kana/kanji, so fall back to Japanese system fonts. */

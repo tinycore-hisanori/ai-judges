@@ -81,8 +81,17 @@ You look for no business model, no paying customer, a tiny market, and nothing t
 
 export const MAX_PITCH_CHARS = 6000;
 
-export function buildMessages(judge, pitch, previous) {
-  const messages = [{ role: "system", content: judge.systemPrompt }];
+// "auto" adds nothing: the judges already answer in the pitch's language,
+// and an explicit "answer in the pitch's language" line shifted the demo scores.
+export const VERDICT_LANG_LINES = {
+  auto: "",
+  en: "Answer in English.",
+  ja: "日本語で答えてください。",
+};
+
+export function buildMessages(judge, pitch, previous, verdictLang = "auto") {
+  const langLine = VERDICT_LANG_LINES[verdictLang] ?? "";
+  const messages = [{ role: "system", content: langLine ? `${judge.systemPrompt}\n${langLine}` : judge.systemPrompt }];
   if (previous) {
     messages.push({
       role: "system",

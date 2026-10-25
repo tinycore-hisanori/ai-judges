@@ -92,11 +92,12 @@ PRD ref: `prd.md > Screens and Layout`.
   - be blunt: no praise, no "however"; quote the pitch's weakest sentence
   - rubric bands: 0–30 absent, 40–60 vague, 70–85 specific and credible, 90+ exceptional; the score must sit inside a band
   - the reason is one sentence starting "Band X-Y (label):" plus the quote and why; the fix is one concrete sentence, never "no change needed", and "ONE sentence to add or change, never a rewrite of the pitch"
-  - no explicit language rule: 32B already answers in the pitch's language. An explicit "answer in the language of the pitch" line was tried and dropped, because it moved the engineer's round-3 verdict on the demo story from 75 to 50 (wherever the line was placed)
+  - no explicit language rule: 32B already answers in the pitch's language. An explicit "answer in the language of the pitch" line was tried and dropped, because it moved the engineer's round-3 verdict on the demo story from 75 to 50 (wherever the line was placed). The optional **Verdict Language Selector** below adds a fixed-language line only when the user picks one
   - the engineer also gets "Judge only what is claimed; do not invent requirements." and "If the pitch states what the product does or how it works, the band cannot be 0-30; 'absent' is only for pitches that never say what the thing does." (stopped a 45 → 20 flip on the recipe rewrite)
   - the marketer also gets "If the idea resembles a well-known existing product, name it and ask what's different."
-- Exports `buildMessages(judge, pitch, previous)`, which returns:
-  - `system`: `judge.systemPrompt`
+- Exports `VERDICT_LANG_LINES` (`auto`: nothing, `en`: "Answer in English.", `ja`: "日本語で答えてください。").
+- Exports `buildMessages(judge, pitch, previous, verdictLang = "auto")`, which returns:
+  - `system`: `judge.systemPrompt`, plus the `VERDICT_LANG_LINES` line on a new line when `verdictLang` isn't `auto`
   - if `previous` exists, a `system` note: "For reference, last round you gave {score}." (score only; the persona prompt already says to read the pitch fresh)
   - `user`: `pitch.slice(0, 6000)`
 
@@ -159,6 +160,9 @@ PRD ref: `prd.md > Persistence and New Pitch`.
 ### UI Language Toggle (`index.html` + `app.js` + `style.css`)
 An EN / JA toggle at the top right (above the title on phones). English is the default; the choice is saved under `localStorage` key `aiJudges.lang`. Every UI string lives in one `STRINGS` object in `app.js` with `en` and `ja` keys, read through `t(key, ...args)`; static page text is tagged `data-i18n`, and the "Fix:" label comes from a `data-label` attribute. Switching sets `<html lang>`, re-renders cards, badge and controls, and in Japanese falls back to Japanese system fonts (Bebas Neue and Inter have no kana or kanji). Judge names stay as they are; roles use `roleJa`. **The toggle is UI only:** requests to the judges are identical in both languages, and judges answer in the language of the pitch.
 Added after the PoC review (it was deferred in `prd.md > Deferred From the POC`).
+
+### Verdict Language Selector (`index.html` + `app.js` + `judges.js`)
+A "Verdicts in" select next to the EN / JA toggle: Auto (language of the pitch) / English / 日本語. Default Auto, saved under `localStorage` key `aiJudges.verdictLang`, and disabled while a round runs. Auto sends exactly the prompts above (so the demo story is unaffected); English or 日本語 appends "Answer in English." or "日本語で答えてください。" to every judge's system prompt. Fixing the language can shift scores a little, the way the dropped "language of the pitch" line did.
 
 ### All-Fail Banner (`index.html` + `app.js`)
 Shown when all three judges failed in the latest attempt. Hidden on the next submit, or as soon as any judge succeeds.

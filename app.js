@@ -1,4 +1,4 @@
-import { JUDGES, MODEL, MAX_PITCH_CHARS, buildMessages } from "./judges.js";
+import { JUDGES, MODEL, MAX_PITCH_CHARS, VERDICT_LANG_LINES, buildMessages } from "./judges.js";
 
 const OLLAMA_URL = "http://localhost:11434/api/chat";
 const MIN_PITCH_CHARS = 20;
@@ -9,9 +9,10 @@ const COUNT_UP_MS = 600;
 const ADVANCE_THRESHOLD = 70;
 const MAX_FIX_CHARS = 300; // longer than this is a rewrite of the pitch, not one change
 const LANG_KEY = "aiJudges.lang";
+const VERDICT_LANG_KEY = "aiJudges.verdictLang";
 
 // --- UI strings ----------------------------------------------------------------
-// UI only: judges answer in the language of the pitch, whatever this is set to.
+// UI only: the judges' answer language is the separate "Verdicts in" selector.
 
 const STRINGS = {
   en: {
@@ -36,6 +37,8 @@ const STRINGS = {
     counter: (n) => `${n} characters`,
     counterOver: (n, max) => `${n} characters — Judges stop reading after ~${max} characters`,
     role: (j) => j.role,
+    verdictLangLabel: "Verdicts in",
+    verdictLangAuto: "Auto (language of the pitch)",
   },
   ja: {
     pageTitle: "AI審査員",
@@ -59,6 +62,8 @@ const STRINGS = {
     counter: (n) => `${n}文字`,
     counterOver: (n, max) => `${n}文字 — 審査員が読むのは約${max}文字までです`,
     role: (j) => j.roleJa,
+    verdictLangLabel: "講評の言語",
+    verdictLangAuto: "自動（ピッチの言語）",
   },
 };
 
@@ -67,6 +72,15 @@ function loadLang() {
 }
 
 let lang = loadLang();
+
+function loadVerdictLang() {
+  try {
+    const v = localStorage.getItem(VERDICT_LANG_KEY);
+    return v && Object.hasOwn(VERDICT_LANG_LINES, v) ? v : "auto";
+  } catch { return "auto"; }
+}
+
+let verdictLang = loadVerdictLang();
 const t = (key, ...args) => {
   const s = STRINGS[lang][key];
   return typeof s === "function" ? s(...args) : s;
@@ -148,7 +162,7 @@ export function validateVerdict(v) {
 // --- Round controller ------------------------------------------------------
 
 async function askJudge(judge) {
-  const messages = buildMessages(judge, state.pitch, state.previous[judge.id]);
+  const messages = buildMessages(judge, state.pitch, state.previous[judge.id], verdictLang);
   try {
     return validateVerdict(await callJudge(judge, messages));
   } catch (err) {
@@ -279,6 +293,7 @@ const els = {
   badge: document.getElementById("badge"),
   banner: document.getElementById("banner"),
   langButtons: document.querySelectorAll("[data-lang]"),
+  verdictLang: document.getElementById("verdictLang"),
 };
 
 function portraitHTML(judge) {
@@ -385,6 +400,7 @@ function renderControls() {
   els.submit.textContent = t(state.running ? "deliberating" : "submit");
   els.submit.disabled = state.running || els.pitch.value.trim().length < MIN_PITCH_CHARS;
   els.newPitch.disabled = state.running;
+  els.verdictLang.disabled = state.running;
   const n = els.pitch.value.length;
   els.counter.className = `counter ${n > MAX_PITCH_CHARS ? "over" : n > WARN_PITCH_CHARS ? "warn" : "ok"}`;
   els.counter.textContent = n > MAX_PITCH_CHARS ? t("counterOver", n, MAX_PITCH_CHARS) : t("counter", n);
@@ -410,16 +426,23 @@ function setLang(next) {
   applyLang();
 }
 
+function setVerdictLang(next) {
+  verdictLang = next;
+  try { localStorage.setItem(VERDICT_LANG_KEY, verdictLang); } catch {}
+}
+
 // --- Wiring --------------------------------------------------------------------
 
 buildPanel();
 load();
+els.verdictLang.value = verdictLang;
 applyLang();
 
 els.pitch.addEventListener("input", renderControls);
 els.submit.addEventListener("click", submitRound);
 els.newPitch.addEventListener("click", newPitch);
 els.langButtons.forEach((b) => b.addEventListener("click", () => setLang(b.dataset.lang)));
+els.verdictLang.addEventListener("change", () => setVerdictLang(els.verdictLang.value));
 els.panel.addEventListener("click", (e) => {
   const id = e.target.closest("[data-retry]")?.dataset.retry;
   if (id) retryJudge(id);

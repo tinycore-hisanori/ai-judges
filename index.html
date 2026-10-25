@@ -9,9 +9,19 @@
 </head>
 <body>
   <main class="stage">
-    <div class="lang-toggle" role="group" aria-label="Language">
-      <button type="button" data-lang="en" aria-pressed="true">EN</button>
-      <button type="button" data-lang="ja" aria-pressed="false">JA</button>
+    <div class="top-controls">
+      <label class="verdict-lang">
+        <span data-i18n="verdictLangLabel">Verdicts in</span>
+        <select id="verdictLang">
+          <option value="auto" data-i18n="verdictLangAuto">Auto (language of the pitch)</option>
+          <option value="en">English</option>
+          <option value="ja">日本語</option>
+        </select>
+      </label>
+      <div class="lang-toggle" role="group" aria-label="Language">
+        <button type="button" data-lang="en" aria-pressed="true">EN</button>
+        <button type="button" data-lang="ja" aria-pressed="false">JA</button>
+      </div>
     </div>
 
     <header class="masthead">
