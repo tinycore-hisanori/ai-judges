@@ -179,6 +179,7 @@ v1.1, added after shipping. Implements `prd.md > Submission Review`.
 - **Schema (`SUBMISSION_SCHEMA`):** `evidence, source, criterion, band, reason, score, fix`. Per request, `source` is an enum of "Pitch" + the labels sent, and `criterion` an enum of the home criterion (or the listed names). Evidence comes before source: with source first, the model named "Pitch" for quotes it then took from the Project story (2 of 2 marketer answers), and naming a section heading ("How it's built") as the source; evidence-first got 6 of 6 right.
 - **Context:** `num_ctx: 12288` in review mode (`SUBMISSION_NUM_CTX`), 6144 otherwise. 12,000 characters is up to ~9,000 tokens in Japanese. On the 24 GB card this needs the q8_0 KV cache: with the default f16 cache, 16384 put only 62 of 65 layers on the GPU and 12288 spilled into shared memory, and one judge took over 5 minutes at both. With q8_0 + flash attention, 12288 is 100% on the GPU (KV cache 1.6 GB instead of 3 GB, no shared-memory spill) at ~38 tokens/s: 4–7 s per judge, ~15–17 s per round.
 - **Criterion only:** review mode replaces each judge's priority paragraph with just their identity line (`submissionPersona`, e.g. "You are Ingrid Haas, an unimpressed early-stage investor.") plus the rule "Your criterion is the ONLY thing you score. Your profession colors your tone and what you notice, but you may not reject for anything outside the criterion." A pinned criterion adds its question (Innovation/Idea: "what is new here compared with existing tools, and is that stated?"). The rule alone wasn't enough: with the full persona, Ingrid scored Innovation/Idea on revenue and market size.
+- **Rubric changes:** each verdict stores `rubric` ("pitch", or "criteria:" + the criteria text with whitespace normalized). Attachment text is content, not rubric. When a judge's previous verdict has a different rubric, the card shows "New rubric" (grey, `.delta.same`) instead of arrows and no "Previous round"; the judge isn't sent "last round you gave N"; and the badge doesn't count up from the old total. Verdicts saved before v1.2.1 count as "pitch".
 - **Cards:** a `.criterion` line ("Design · Project story") above the reason.
 
 ### File Attachments (`extract.js` + `app.js`)
@@ -192,7 +193,7 @@ v1.2. Implements `prd.md > Submission Review` (loading a document instead of pas
 - **Limit:** unchanged: pitch + criteria + documents are cut at 12,000 characters when sent.
 
 ### Version Footer (`index.html` + `app.js`)
-`APP_VERSION` at the top of `app.js` (MAJOR.MINOR.PATCH: MINOR for a feature, PATCH for a bug fix, bumped in the same commit and in `CHANGELOG.md`; each release is tagged `vX.Y.Z` in git). The footer shows "AI Judges v1.2.0 · qwen2.5:32b · local", with the model from `MODEL`.
+`APP_VERSION` at the top of `app.js` (MAJOR.MINOR.PATCH: MINOR for a feature, PATCH for a bug fix, bumped in the same commit and in `CHANGELOG.md`; each release is tagged `vX.Y.Z` in git). The footer shows e.g. "AI Judges v1.2.1 · qwen2.5:32b · local", with the model from `MODEL`.
 
 ### All-Fail Banner (`index.html` + `app.js`)
 Shown when all three judges failed in the latest attempt. Hidden on the next submit, or as soon as any judge succeeds.

@@ -2,6 +2,9 @@
 
 Versions are MAJOR.MINOR.PATCH: MINOR for a feature, PATCH for a bug fix. Each release is tagged `vX.Y.Z` in git, and `APP_VERSION` in `app.js` matches the latest entry.
 
+## 1.2.1
+- Fix: after switching between pitch-only and submission review, or changing the criteria, the cards compared scores across different rubrics. A round under a new rubric now shows "New rubric" instead of arrows, hides "Previous round", doesn't tell the judges their last score, and the badge doesn't count up from the old total.
+
 ## 1.2.0
 - File attachments: each slot's **Load file** button takes `.md`, `.txt`, `.pdf`, `.docx`, `.pptx` or `.xlsx`, extracts the text in the browser and fills the slot's text box. PDF pages, slides (with speaker notes) and sheets (up to 200 rows each) are marked. A file with no readable text shows "No readable text found (scanned image?)".
 - pdf.js, JSZip and SheetJS are vendored in `vendor/` and loaded only when needed, so the app still works offline.

@@ -1,5 +1,5 @@
 // MAJOR.MINOR.PATCH: MINOR for a feature, PATCH for a bug fix. Bump in the same commit, and in CHANGELOG.md.
-const APP_VERSION = "1.2.0";
+const APP_VERSION = "1.2.1";
 
 import {
   JUDGES, MODEL, MAX_PITCH_CHARS, MAX_TOTAL_CHARS, VERDICT_LANG_LINES, DEFAULT_CRITERIA,
@@ -44,6 +44,7 @@ const STRINGS = {
     retry: "Retry",
     fixLabel: "Fix: ",
     noChange: "no change",
+    newRubric: "New rubric",
     previousRound: "Previous round",
     waitingJudges: (n) => `Waiting for ${n} judge${n === 1 ? "" : "s"}`,
     advance: "Would advance",
@@ -81,6 +82,7 @@ const STRINGS = {
     retry: "再試行",
     fixLabel: "改善案：",
     noChange: "変化なし",
+    newRubric: "新しい基準",
     previousRound: "前回のラウンド",
     waitingJudges: (n) => `あと${n}人の審査員を待っています`,
     advance: "通過",
@@ -260,9 +262,16 @@ export function validateVerdict(v, documents = null, lang = null) {
 
 // --- Round controller ------------------------------------------------------
 
+// What a score was measured against: the pitch-only rubric, or the listed criteria.
+// Scores under different rubrics aren't compared (no delta, no "last round you gave").
+const rubricOf = (submission) => (submission ? `criteria:${normalizeSpace(submission.criteria)}` : "pitch");
+const comparable = (prev, rubric) => Boolean(prev) && (prev.rubric ?? "pitch") === rubric;
+
 async function askJudge(judge) {
   const { submission } = state;
-  const messages = buildMessages(judge, state.pitch, state.previous[judge.id], { verdictLang, submission });
+  const prev = state.previous[judge.id];
+  const previous = comparable(prev, rubricOf(submission)) ? prev : null;
+  const messages = buildMessages(judge, state.pitch, previous, { verdictLang, submission });
   const documents = submission && submissionDocuments(state.pitch, submission);
   const replyLang = verdictLang === "auto" ? null : verdictLang;
   try {
@@ -285,7 +294,7 @@ async function runJudge(judge) {
   state.status[judge.id] = "reading";
   renderCard(judge);
   try {
-    state.current[judge.id] = await askJudge(judge);
+    state.current[judge.id] = { ...(await askJudge(judge)), rubric: rubricOf(state.submission) };
     state.status[judge.id] = "done";
   } catch (err) {
     console.warn(`${judge.name} failed:`, err, err.raw ? `Raw: ${JSON.stringify(err.raw)}` : "");
@@ -335,7 +344,9 @@ function finishRound() {
   els.banner.hidden = !JUDGES.every((j) => state.status[j.id] === "failed");
   const verdicts = JUDGES.map((j) => state.current[j.id]);
   if (verdicts.every(Boolean)) {
-    const from = state.lastTotal;
+    // The badge counts up from the last total only when that round used the same rubric.
+    const sameRubric = JUDGES.every((j) => !state.previous[j.id] || comparable(state.previous[j.id], state.current[j.id].rubric));
+    const from = sameRubric ? state.lastTotal : null;
     state.lastTotal = panelTotal(verdicts.map((v) => v.score)).total;
     renderBadge(from);
     save(); // only complete rounds are saved; a reload mid-round restores the last one
@@ -542,9 +553,12 @@ function renderCard(judge) {
       <button class="btn retry" data-retry="${judge.id}" ${state.running ? "disabled" : ""}>${t("retry")}</button>`;
   } else {
     const v = state.current[judge.id];
-    const prev = state.previous[judge.id];
+    const newRubric = Boolean(state.previous[judge.id]) && !comparable(state.previous[judge.id], v.rubric ?? "pitch");
+    const prev = newRubric ? null : state.previous[judge.id];
     const delta = scoreDelta(prev?.score, v.score);
-    const deltaHTML = !delta
+    const deltaHTML = newRubric
+      ? `<span class="delta same">${t("newRubric")}</span>`
+      : !delta
       ? ""
       : delta.kind === "same"
         ? `<span class="delta same">${t("noChange")}</span>`
