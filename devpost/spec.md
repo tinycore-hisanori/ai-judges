@@ -40,7 +40,7 @@ PRD ref: `prd.md > The Core Journey`.
 ## Stack
 - **Plain HTML + CSS + vanilla JavaScript (ES modules, no TypeScript, no build step).** Your choice. A build step is overhead for one page in a one-day project. You'd use Vite for games, not here. The tradeoff: DOM updates are hand-written.
 - **Static server:** `python -m http.server 8000` (or `npx serve`). It's needed because ES modules and Ollama's CORS allowlist work for `http://localhost` origins, not `file://`.
-- **Ollama, native API**, model **`qwen2.5:32b`** (Q4, ~21 GB with `num_ctx: 6144`), running on an RTX 4090 (24 GB). Docs: https://github.com/ollama/ollama/blob/main/docs/api.md · structured outputs: https://ollama.com/blog/structured-outputs · CORS/`OLLAMA_ORIGINS`: https://github.com/ollama/ollama/blob/main/docs/faq.md
+- **Ollama, native API**, model **`qwen2.5:32b`** (Q4, ~21 GB with `num_ctx: 6144` for pitches and `12288` for submission review), running on an RTX 4090 (24 GB) with Ollama's KV cache quantized (`OLLAMA_FLASH_ATTENTION=1`, `OLLAMA_KV_CACHE_TYPE=q8_0`). Docs: https://github.com/ollama/ollama/blob/main/docs/api.md · structured outputs: https://ollama.com/blog/structured-outputs · CORS/`OLLAMA_ORIGINS`: https://github.com/ollama/ollama/blob/main/docs/faq.md
 - **Fonts:** Bebas Neue (https://fonts.google.com/specimen/Bebas+Neue) and Inter (https://rsms.me/inter/), both under the OFL licence, self-hosted as woff2.
 - **Portraits:** flat-shaded SVG illustrations in `assets/portraits/src/`, rendered to 512×512 PNGs by `assets/portraits/src/render.mjs` (Playwright + local Chrome). Changed from Codex image generation: the build session had no image model, so they were drawn as vectors; a Codex PNG can still replace any of them under the same filename.
 
@@ -48,7 +48,11 @@ PRD ref: `prd.md > The Core Journey`.
 
 ## Where It Runs and How Someone Tries It
 - **Runtime:** a desktop browser on your Windows PC, with Ollama running locally.
-- **Prerequisites:** Ollama installed and running, and `ollama pull qwen2.5:32b` done once.
+- **Prerequisites:** Ollama installed and running, and `ollama pull qwen2.5:32b` done once. For submission review on a 24 GB GPU, quantize the KV cache (Windows):
+  1. `setx OLLAMA_FLASH_ATTENTION 1`
+  2. `setx OLLAMA_KV_CACHE_TYPE q8_0`
+  3. Quit Ollama from the tray icon, then start it again from the Start menu (setx only reaches newly started programs).
+  4. Check: `%LOCALAPPDATA%\Ollama\server.log` shows `OLLAMA_FLASH_ATTENTION:true` and `OLLAMA_KV_CACHE_TYPE:q8_0`.
 - **Start:**
   ```
   python -m http.server 8000
@@ -83,7 +87,7 @@ Static markup: the header (title and tagline), the all-fail banner (hidden), the
 PRD ref: `prd.md > Screens and Layout`.
 
 ### Judge Definitions (`judges.js`)
-- Exports `JUDGES`, an ordered array of `{ id, name, role, roleJa, priority, initials, color, portrait, seed, systemPrompt }` (`roleJa` is the Japanese UI label: エンジニア / マーケター / 投資家):
+- Exports `JUDGES`, an ordered array of `{ id, name, role, roleJa, priority, initials, color, portrait, seed, homeCriterion, systemPrompt }` (`roleJa` is the Japanese UI label: エンジニア / マーケター / 投資家; `homeCriterion` is `{ name, focus }` for submission review: Design / Presentation / Innovation/Idea):
   - `engineer` (Vera Lind, seed 101)
   - `marketer` (Marco Reyes, seed 202)
   - `investor` (Ingrid Haas, seed 303)
@@ -96,10 +100,11 @@ PRD ref: `prd.md > Screens and Layout`.
   - the engineer also gets "Judge only what is claimed; do not invent requirements." and "If the pitch states what the product does or how it works, the band cannot be 0-30; 'absent' is only for pitches that never say what the thing does." (stopped a 45 → 20 flip on the recipe rewrite)
   - the marketer also gets "If the idea resembles a well-known existing product, name it and ask what's different."
 - Exports `VERDICT_LANG_LINES` (`auto`: nothing, `en`: "Hard rule: Write reason and fix in English. Keep the quoted evidence in its original language.", `ja`: "Hard rule: Write reason and fix in Japanese. Keep the quoted evidence in its original language."), added as the last paragraph of the system prompt.
-- Exports `buildMessages(judge, pitch, previous, verdictLang = "auto")`, which returns:
-  - `system`: `judge.systemPrompt`, plus the `VERDICT_LANG_LINES` line on a new line when `verdictLang` isn't `auto`
+- Exports `pitchLanguage(text)` (`"ja"` when kana/kanji are more than a quarter of the Latin letters, else `"en"`).
+- Exports `buildMessages(judge, pitch, previous, { verdictLang = "auto", submission = null })`, which returns:
+  - `system`: `judge.systemPrompt`; in submission review, then the submission rules, the source/evidence rule, the criterion rule (home or free) and "Judging criteria:" + the criteria; last, the `VERDICT_LANG_LINES` line when `verdictLang` is neither `auto` nor the pitch's own language
   - if `previous` exists, a `system` note: "For reference, last round you gave {score}." (score only; the persona prompt already says to read the pitch fresh)
-  - `user`: `pitch.slice(0, 6000)`
+  - `user`: `pitch.slice(0, 6000)`; in submission review, the pitch and each document between `=== <name> ===` and `=== End of <name> ===` markers
 
 PRD ref: `prd.md > The Judges`, `prd.md > Resubmit and Score Movement`.
 
@@ -108,7 +113,7 @@ The only function that talks to the model, and the seam for a later provider swi
 PRD ref: `prd.md > Deliberation and Reveal`.
 
 ### Verdict Validation (`validateVerdict` in `app.js`)
-Accepts only when `score` is an integer from 0 to 100 and `reason` and `fix` are non-empty strings after trimming, and `reason` contains no empty quote (`""`, `“”` or `「」`), and `fix` is at most 300 characters (longer is a rewrite of the pitch, not one change), and keeps only `{score, reason, fix}`. An unusable answer gets **one automatic retry with `seed + 1`** (the same seed would repeat the same answer); a second unusable answer marks the judge failed. Network, HTTP and timeout errors are not retried, so "Ollama is down" doesn't double the wait.
+In submission review it also requires a non-empty `criterion`, a `source` that is "Pitch" or one of the document labels as sent, and an `evidence` string found verbatim (whitespace-normalized) in that document; it then keeps `{score, reason, fix, criterion, source}`. Otherwise: accepts only when `score` is an integer from 0 to 100 and `reason` and `fix` are non-empty strings after trimming, and `reason` contains no empty quote (`""`, `“”` or `「」`), and `fix` is at most 300 characters (longer is a rewrite of the pitch, not one change), and keeps only `{score, reason, fix}`. An unusable answer gets **one automatic retry with `seed + 1`** (the same seed would repeat the same answer); a second unusable answer marks the judge failed. Network, HTTP and timeout errors are not retried, so "Ollama is down" doesn't double the wait.
 PRD ref: `prd.md > States and Boundaries` (unusable answer).
 
 ### Round Controller (`app.js`)
@@ -162,7 +167,17 @@ An EN / JA toggle at the top right (above the title on phones). English is the d
 Added after the PoC review (it was deferred in `prd.md > Deferred From the POC`).
 
 ### Verdict Language Selector (`index.html` + `app.js` + `judges.js`)
-A "Verdicts in" select next to the EN / JA toggle: Auto (language of the pitch) / English / 日本語. Default Auto, saved under `localStorage` key `aiJudges.verdictLang`, and disabled while a round runs. Auto sends exactly the prompts above (so the demo story is unaffected); English or 日本語 adds a hard rule as the last paragraph of every judge's system prompt: "Write reason and fix in English/Japanese. Keep the quoted evidence in its original language." Because the language is part of the prompt (the seed stays the same), switching it and resubmitting an unchanged pitch produces a fresh verdict. Fixing the language shifts scores: on the demo story, 日本語 gave 28 → 47 → 75 (Would advance) and English gave 28 → 47 → 65 (the engineer stays at 45), so the demo is recorded with Auto.
+A "Verdicts in" select next to the EN / JA toggle: Auto (language of the pitch) / English / 日本語. Default Auto, saved under `localStorage` key `aiJudges.verdictLang`, and disabled while a round runs. Auto sends exactly the prompts above (so the demo story is unaffected), and so does picking the pitch's own language (`pitchLanguage`), so English on an English pitch scores exactly like Auto. A different language adds a hard rule as the last paragraph of every judge's system prompt: "Write reason and fix in English/Japanese. Keep the quoted evidence in its original language." Because the language is part of the prompt (the seed stays the same), switching it and resubmitting an unchanged pitch produces a fresh verdict. Fixing the language shifts scores: on the demo story, 日本語 gave 28 → 47 → 75 (Would advance) and English gave 28 → 47 → 65 (the engineer stays at 45), so the demo is recorded with Auto.
+
+### Submission Review (`index.html` + `app.js` + `judges.js` + `style.css`)
+v1.1, added after shipping. Implements `prd.md > Submission Review`.
+- **Form:** a `<details id="submission">` under the pitch counter, with a `<fieldset>` (disabled during a round) holding four slots (label input, "Load .md/.txt" button + hidden file input read with `FileReader`, textarea), the criteria textarea (pre-filled with `DEFAULT_CRITERIA`, verbatim from Devpost) and the combined counter. The form is saved under `localStorage` key `aiJudges.submission`; "New pitch" doesn't clear it.
+- **On/off:** `activeSubmission(form)` returns `{ attachments, criteria }` only when at least one attachment has text; otherwise `null`, and every request is the v1 one (checked byte-for-byte against a recorded golden copy of the demo story's 9 requests).
+- **Limit:** `MAX_TOTAL_CHARS = 12000` for pitch (≤ 6000) + criteria + documents, filled in that order; the combined counter turns red past it.
+- **Criteria:** `criterionNames()` takes the text before " — " on each line. With exactly three criteria and all three home criteria listed, `homeCriterion()` pins each judge's criterion; otherwise the judge chooses from the list.
+- **Schema (`SUBMISSION_SCHEMA`):** `evidence, source, criterion, band, reason, score, fix`. Per request, `source` is an enum of "Pitch" + the labels sent, and `criterion` an enum of the home criterion (or the listed names). Evidence comes before source: with source first, the model named "Pitch" for quotes it then took from the Project story (2 of 2 marketer answers), and naming a section heading ("How it's built") as the source; evidence-first got 6 of 6 right.
+- **Context:** `num_ctx: 12288` in review mode (`SUBMISSION_NUM_CTX`), 6144 otherwise. 12,000 characters is up to ~9,000 tokens in Japanese. On the 24 GB card this needs the q8_0 KV cache: with the default f16 cache, 16384 put only 62 of 65 layers on the GPU and 12288 spilled into shared memory, and one judge took over 5 minutes at both. With q8_0 + flash attention, 12288 is 100% on the GPU (KV cache 1.6 GB instead of 3 GB, no shared-memory spill) at ~38 tokens/s: 4–7 s per judge, ~15–17 s per round.
+- **Cards:** a `.criterion` line ("Design · Project story") above the reason.
 
 ### All-Fail Banner (`index.html` + `app.js`)
 Shown when all three judges failed in the latest attempt. Hidden on the next submit, or as soon as any judge succeeds.
@@ -178,7 +193,8 @@ In-memory state in `app.js`, with the persisted subset in `localStorage["aiJudge
   previous: { engineer: Verdict|null, marketer: Verdict|null, investor: Verdict|null },
   lastTotal: number|null                 // badge's previous total, the starting point for the count-up
 }
-// Verdict = { score: 0–100 integer, reason: string, fix: string }
+// Verdict = { score: 0–100 integer, reason: string, fix: string, criterion?: string, source?: string }
+// submission: { attachments: [{ label, text }], criteria } | null — what the latest round was judged with (v1.1)
 ```
 
 | Data | Lives in | Updated when | On reload |
@@ -235,7 +251,7 @@ AiJudgements/
   ```
 - **Evidence-first order:** the model fills the properties in schema order, so it copies the pitch sentence that addresses its priority (`evidence`, `""` if none) and picks a `band` *before* writing the reason and score. This was the only variant that stopped the marketer claiming a stated audience was missing. `evidence` and `band` aren't displayed or stored.
 - **Response (relevant part):** `{ "message": { "role": "assistant", "content": "{\"evidence\":\"...\",\"band\":\"vague\",\"reason\":\"...\",\"score\":45,\"fix\":\"...\"}" }, "done": true }`. Parse `message.content` as JSON, then validate. Don't rely on the schema's `minimum`/`maximum` alone.
-- **Timing:** about 4–6 s per judge, about 15 s per round. The first call after Ollama starts also loads the model, so expect a slower first round.
+- **Timing:** with the q8_0 KV cache, about 3–4 s per judge and 9–12 s per round for a pitch; 4–7 s per judge in submission review. With the default f16 cache, `num_ctx: 6144` spilled ~260 MB into shared memory and halved generation speed (12–13 s per judge). The first call after Ollama starts also loads the model, so expect a slower first round.
 - **CORS:** browser calls from `http://localhost:*` should be allowed by default. If they're blocked, set `OLLAMA_ORIGINS=http://localhost:8000` and restart Ollama.
 - **Docs:** https://github.com/ollama/ollama/blob/main/docs/api.md · https://ollama.com/blog/structured-outputs
 

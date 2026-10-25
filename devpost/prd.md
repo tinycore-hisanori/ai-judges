@@ -115,6 +115,18 @@ Source: `scope.md > The Unique Kernel` ("a number that moves").
 - [ ] After a completed round, reloading the page shows the same pitch, scores, reasons, fixes and deltas.
 - [ ] Pressing "New pitch" returns the cards to "Waiting for your pitch…", empties the box and empties the badge.
 
+### Submission Review (v1.1, after shipping)
+- Below the pitch box, a collapsed **"Attach your submission (optional)"** section holds up to four documents, each with an editable label (defaults: "Project story", "README", "Demo video script", "Other"), a text area and a **"Load .md/.txt"** button (read in the browser, never uploaded), plus a **"Judging criteria"** box pre-filled with this hackathon's three criteria and their Devpost definitions (Design / Innovation/Idea / Presentation), editable.
+- **Review mode turns on only when at least one document has text.** Then the judges get the pitch, the labelled documents and the criteria. Each judge keeps their persona but maps the verdict to one criterion: with exactly three criteria including the defaults, the criterion is fixed per judge (Engineer → Design, Marketer → Presentation, Investor → Innovation/Idea) so the panel covers all of them; with a different number, the judge picks freely from the list. The reason may mention a second criterion.
+- Each judge quotes from one document and names it. The card shows "Criterion · Source" (e.g. "Design · Project story") as a small line above the reason.
+- The judges are told to judge evidence against the criteria, not volume: restating the same point in another document earns nothing.
+- A combined counter shows pitch + criteria + documents against **12,000 characters**; past that it turns red and the judges stop reading.
+- Documents and criteria survive a reload; "New pitch" leaves them in place.
+
+- [ ] With no document text, the request to the judges is byte-identical to v1's, and the demo story still ends 30 → 48 → 75, Would advance.
+- [ ] With the Project story attached, each card shows its home criterion and the document it quoted.
+- [ ] A source that isn't one of the documents, or a quote that isn't in the named document, gets one retry, then "The judge left the room".
+
 ## States and Boundaries
 - **First arrival / empty:** cards show "Waiting for your pitch…", the box is empty, Submit is disabled, and the badge is empty.
 - **Deliberating:** cards show "Reading…", the box is locked, and the button reads "Panel is deliberating…".
@@ -141,6 +153,7 @@ Source: `scope.md > The Unique Kernel` ("a number that moves").
 - **Reload keeps your work.** "New pitch" is the only way to clear it.
 - **All-fail banner.** When all three judges fail, name the real cause ("Is Ollama running?") instead of showing three identical errors.
 - **Cut order:** the badge animation first, then persistence.
+- **Submission review is opt-in by content (v1.1).** Only document text switches it on, so the pitch-only demo stays exactly as recorded. Criteria are spread across the judges rather than chosen freely, because left free all three picked Presentation.
 - **A TV pitch-show stage, illustrated.** Named, caricatured judges, not photoreal.
 
 ## What We're Building
@@ -152,6 +165,7 @@ Source: `scope.md > The Unique Kernel` ("a number that moves").
 - Per-judge failure state with retry.
 - Persistence of the pitch, the latest round and the previous round across reloads, plus New pitch to clear.
 - Stage styling and three static illustrated portraits.
+- **v1.1, after shipping:** submission review (`Submission Review` above).
 
 **Cut order if time runs short:** (1) the badge's count-up animation (just show the new number), then (2) reload persistence. Neither is needed to show the panel changing its mind.
 

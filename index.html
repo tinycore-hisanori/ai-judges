@@ -36,6 +36,18 @@
     <section class="pitch">
       <textarea id="pitch" rows="6" placeholder="Paste your pitch — 3 to 5 lines"></textarea>
       <div id="counter" class="counter">0 characters</div>
+      <details id="submission" class="submission">
+        <summary data-i18n="attachTitle">Attach your submission (optional)</summary>
+        <fieldset id="submissionFields">
+          <p class="hint" data-i18n="attachHint">The judges read these only when at least one document has text.</p>
+          <div id="attachments" class="attachments"></div>
+          <label class="criteria-field">
+            <span data-i18n="criteriaLabel">Judging criteria</span>
+            <textarea id="criteria" rows="5"></textarea>
+          </label>
+          <div id="totalCounter" class="counter"></div>
+        </fieldset>
+      </details>
       <div class="controls">
         <button id="submit" class="btn primary" disabled>Submit to the panel</button>
         <button id="newPitch" class="btn ghost" data-i18n="newPitch">New pitch</button>

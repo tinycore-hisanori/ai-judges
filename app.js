@@ -1,4 +1,7 @@
-import { JUDGES, MODEL, MAX_PITCH_CHARS, VERDICT_LANG_LINES, buildMessages } from "./judges.js";
+import {
+  JUDGES, MODEL, MAX_PITCH_CHARS, MAX_TOTAL_CHARS, VERDICT_LANG_LINES, DEFAULT_CRITERIA,
+  activeSubmission, criterionNames, homeCriterion, submissionDocuments, buildMessages,
+} from "./judges.js";
 
 const OLLAMA_URL = "http://localhost:11434/api/chat";
 const MIN_PITCH_CHARS = 20;
@@ -10,6 +13,13 @@ const ADVANCE_THRESHOLD = 70;
 const MAX_FIX_CHARS = 300; // longer than this is a rewrite of the pitch, not one change
 const LANG_KEY = "aiJudges.lang";
 const VERDICT_LANG_KEY = "aiJudges.verdictLang";
+const SUBMISSION_KEY = "aiJudges.submission";
+const DEFAULT_LABELS = ["Project story", "README", "Demo video script", "Other"];
+// 6144 tokens fits the prompt + a 6000-char pitch (even in Japanese, ~4,800 tokens); 8192 spilled 32B into system RAM.
+const PITCH_NUM_CTX = 6144;
+// 12,000 characters of pitch + criteria + documents (Japanese ~9,000 tokens). Needs Ollama's q8_0 KV cache
+// (OLLAMA_FLASH_ATTENTION=1, OLLAMA_KV_CACHE_TYPE=q8_0) to stay fully on a 24 GB GPU; 16384 did not fit.
+const SUBMISSION_NUM_CTX = 12288;
 
 // --- UI strings ----------------------------------------------------------------
 // UI only: the judges' answer language is the separate "Verdicts in" selector.
@@ -39,6 +49,14 @@ const STRINGS = {
     role: (j) => j.role,
     verdictLangLabel: "Verdicts in",
     verdictLangAuto: "Auto (language of the pitch)",
+    attachTitle: "Attach your submission (optional)",
+    attachHint: "The judges read these only when at least one document has text.",
+    labelField: "Label",
+    docPlaceholder: "Paste the document text",
+    loadFile: "Load .md/.txt",
+    criteriaLabel: "Judging criteria",
+    totalCounter: (n, max) => `${n} / ${max} characters sent to the judges`,
+    totalOver: (n, max) => `${n} / ${max} characters — Judges stop reading after ${max} characters`,
   },
   ja: {
     pageTitle: "AI審査員",
@@ -64,6 +82,14 @@ const STRINGS = {
     role: (j) => j.roleJa,
     verdictLangLabel: "講評の言語",
     verdictLangAuto: "自動（ピッチの言語）",
+    attachTitle: "提出物を添付（任意）",
+    attachHint: "文書に1つでも本文があるときだけ、審査員がこれを読みます。",
+    labelField: "ラベル",
+    docPlaceholder: "文書の本文を貼り付け",
+    loadFile: ".md/.txt を読み込む",
+    criteriaLabel: "審査基準",
+    totalCounter: (n, max) => `審査員に送る文字数 ${n} / ${max}`,
+    totalOver: (n, max) => `${n} / ${max}文字 — 審査員が読むのは${max}文字までです`,
   },
 };
 
@@ -100,6 +126,22 @@ const VERDICT_SCHEMA = {
   required: ["evidence", "band", "reason", "score", "fix"],
 };
 
+// Submission review: the quote comes first, then the document it came from, then the criterion.
+// With "source" first the model named the pitch for quotes it then took from the Project story.
+const SUBMISSION_SCHEMA = {
+  type: "object",
+  properties: {
+    evidence: { type: "string" },
+    source: { type: "string" },
+    criterion: { type: "string" },
+    band: VERDICT_SCHEMA.properties.band,
+    reason: { type: "string" },
+    score: VERDICT_SCHEMA.properties.score,
+    fix: { type: "string" },
+  },
+  required: ["evidence", "source", "criterion", "band", "reason", "score", "fix"],
+};
+
 // --- State ---------------------------------------------------------------
 
 const state = {
@@ -109,6 +151,7 @@ const state = {
   status: { engineer: "waiting", marketer: "waiting", investor: "waiting" },
   lastTotal: null,
   running: false,
+  submission: null, // the documents + criteria this round was judged with, or null
 };
 
 // --- Scoring rules (pure) ----------------------------------------------------
@@ -127,7 +170,18 @@ export function scoreDelta(prev, next) {
 
 // --- Model access (the one seam for a future provider switch) -------------
 
-async function callJudge(judge, messages, seed = judge.seed) {
+// Pinned in the schema: the source is one of the documents sent, and the criterion is
+// the judge's home criterion or one of the listed names.
+function verdictSchema(judge, submission, documents) {
+  if (!submission) return VERDICT_SCHEMA;
+  const names = criterionNames(submission.criteria);
+  const home = homeCriterion(judge, names);
+  const criterion = { type: "string", ...(home ? { enum: [home] } : names.length ? { enum: names } : {}) };
+  const source = { type: "string", enum: documents.map((d) => d.label) };
+  return { ...SUBMISSION_SCHEMA, properties: { ...SUBMISSION_SCHEMA.properties, source, criterion } };
+}
+
+async function callJudge(judge, messages, seed = judge.seed, submission = null, documents = null) {
   const res = await fetch(OLLAMA_URL, {
     method: "POST",
     signal: AbortSignal.timeout(JUDGE_TIMEOUT_MS),
@@ -136,9 +190,8 @@ async function callJudge(judge, messages, seed = judge.seed) {
       model: MODEL,
       messages,
       stream: false,
-      format: VERDICT_SCHEMA,
-      // 6144 tokens fits the prompt + a 6000-char pitch (even in Japanese, ~4,800 tokens); 8192 spilled 32B into system RAM.
-      options: { temperature: 0.2, seed, num_ctx: 6144 },
+      format: verdictSchema(judge, submission, documents),
+      options: { temperature: 0.2, seed, num_ctx: submission ? SUBMISSION_NUM_CTX : PITCH_NUM_CTX },
     }),
   });
   if (!res.ok) throw new Error(`Ollama HTTP ${res.status}`);
@@ -148,7 +201,10 @@ async function callJudge(judge, messages, seed = judge.seed) {
 
 class UnusableVerdict extends Error {}
 
-export function validateVerdict(v) {
+const normalizeSpace = (s) => s.replace(/\s+/g, " ").trim();
+
+// `documents`: what the judge was sent in submission review ([{ label, text }], "Pitch" first), else null.
+export function validateVerdict(v, documents = null) {
   const fail = (msg) => { throw new UnusableVerdict(msg); };
   if (!v || typeof v !== "object") fail("verdict is not an object");
   if (!Number.isInteger(v.score) || v.score < 0 || v.score > 100) fail("score out of range");
@@ -156,21 +212,32 @@ export function validateVerdict(v) {
   if (/["“「]\s*["”」]/.test(v.reason)) fail("empty quote in reason");
   if (typeof v.fix !== "string" || !v.fix.trim()) fail("empty fix");
   if (v.fix.trim().length > MAX_FIX_CHARS) fail("fix is a rewrite, not one change");
-  return { score: v.score, reason: v.reason.trim(), fix: v.fix.trim() };
+  const verdict = { score: v.score, reason: v.reason.trim(), fix: v.fix.trim() };
+  if (!documents) return verdict;
+  if (typeof v.criterion !== "string" || !v.criterion.trim()) fail("empty criterion");
+  // The source must be a document the judge was given, and the evidence must really be in it.
+  const doc = documents.find((d) => d.label === v.source?.trim());
+  if (!doc) fail(`source "${v.source}" is not one of the documents`);
+  if (typeof v.evidence !== "string" || !normalizeSpace(doc.text).includes(normalizeSpace(v.evidence))) {
+    fail(`evidence is not in ${doc.label}`);
+  }
+  return { ...verdict, criterion: v.criterion.trim(), source: doc.label };
 }
 
 // --- Round controller ------------------------------------------------------
 
 async function askJudge(judge) {
-  const messages = buildMessages(judge, state.pitch, state.previous[judge.id], verdictLang);
+  const { submission } = state;
+  const messages = buildMessages(judge, state.pitch, state.previous[judge.id], { verdictLang, submission });
+  const documents = submission && submissionDocuments(state.pitch, submission);
   try {
-    return validateVerdict(await callJudge(judge, messages));
+    return validateVerdict(await callJudge(judge, messages, judge.seed, submission, documents), documents);
   } catch (err) {
     if (!(err instanceof UnusableVerdict)) throw err;
     // One automatic retry for an unusable answer. A different seed, or the
     // deterministic model would repeat the same answer.
     console.warn(`${judge.name} gave an unusable answer (${err.message}); retrying once`);
-    return validateVerdict(await callJudge(judge, messages, judge.seed + 1));
+    return validateVerdict(await callJudge(judge, messages, judge.seed + 1, submission, documents), documents);
   }
 }
 
@@ -202,6 +269,7 @@ async function submitRound() {
   if (state.running) return;
   state.running = true;
   state.pitch = els.pitch.value;
+  state.submission = activeSubmission(readSubmission());
   els.banner.hidden = true;
   for (const judge of JUDGES) {
     // Each judge's last completed verdict becomes the one we compare against.
@@ -241,8 +309,8 @@ function finishRound() {
 
 function save() {
   try {
-    const { pitch, current, previous, lastTotal } = state;
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ pitch, current, previous, lastTotal }));
+    const { pitch, current, previous, lastTotal, submission } = state;
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ pitch, current, previous, lastTotal, submission }));
   } catch (err) {
     console.warn("Could not save round:", err);
   }
@@ -257,6 +325,7 @@ function load() {
       current: saved.current,
       previous: { ...state.previous, ...saved.previous },
       lastTotal: saved.lastTotal,
+      submission: saved.submission ?? null,
     });
     for (const j of JUDGES) state.status[j.id] = "done";
     els.pitch.value = saved.pitch;
@@ -275,11 +344,63 @@ function newPitch() {
   }
   state.pitch = "";
   state.lastTotal = null;
+  state.submission = null;
   els.pitch.value = "";
   els.banner.hidden = true;
   JUDGES.forEach(renderCard);
   renderBadge();
   renderControls();
+}
+
+// --- Submission form (attachments + criteria) -----------------------------------
+// Kept in the browser across reloads; "New pitch" leaves it alone.
+
+function readSubmission() {
+  return {
+    attachments: [...els.attachments.querySelectorAll(".attachment")].map((slot) => ({
+      label: slot.querySelector(".att-label").value,
+      text: slot.querySelector(".att-text").value,
+    })),
+    criteria: els.criteria.value,
+  };
+}
+
+function buildSubmissionForm() {
+  let saved = null;
+  try { saved = JSON.parse(localStorage.getItem(SUBMISSION_KEY)); } catch {}
+  els.attachments.innerHTML = DEFAULT_LABELS.map(() => `
+    <div class="attachment">
+      <div class="att-head">
+        <input class="att-label" type="text">
+        <button type="button" class="btn ghost att-load" data-i18n="loadFile"></button>
+        <input class="att-file" type="file" accept=".md,.markdown,.txt,text/plain,text/markdown" hidden>
+      </div>
+      <textarea class="att-text" rows="4"></textarea>
+    </div>`).join("");
+  els.attachments.querySelectorAll(".attachment").forEach((slot, i) => {
+    slot.querySelector(".att-label").value = saved?.attachments?.[i]?.label ?? DEFAULT_LABELS[i];
+    slot.querySelector(".att-text").value = saved?.attachments?.[i]?.text ?? "";
+  });
+  els.criteria.value = saved?.criteria ?? DEFAULT_CRITERIA;
+  if (activeSubmission(readSubmission())) els.submission.open = true;
+}
+
+function onSubmissionInput() {
+  try { localStorage.setItem(SUBMISSION_KEY, JSON.stringify(readSubmission())); } catch {}
+  renderControls();
+}
+
+// Client-side only: the file is read in the browser and never uploaded.
+function loadAttachmentFile(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    input.closest(".attachment").querySelector(".att-text").value = reader.result;
+    input.value = "";
+    onSubmissionInput();
+  };
+  reader.readAsText(file);
 }
 
 // --- Rendering ---------------------------------------------------------------
@@ -294,6 +415,11 @@ const els = {
   banner: document.getElementById("banner"),
   langButtons: document.querySelectorAll("[data-lang]"),
   verdictLang: document.getElementById("verdictLang"),
+  submission: document.getElementById("submission"),
+  submissionFields: document.getElementById("submissionFields"),
+  attachments: document.getElementById("attachments"),
+  criteria: document.getElementById("criteria"),
+  totalCounter: document.getElementById("totalCounter"),
 };
 
 function portraitHTML(judge) {
@@ -354,6 +480,7 @@ function renderCard(judge) {
       : "";
     body.innerHTML = `
       <div class="score-row"><span class="score">${v.score}<small>/100</small></span>${deltaHTML}</div>
+      ${v.criterion ? `<p class="criterion">${escapeHTML(v.criterion)} · ${escapeHTML(v.source)}</p>` : ""}
       <p class="reason">${escapeHTML(v.reason)}</p>
       <p class="fix" data-label="${t("fixLabel")}">${escapeHTML(v.fix)}</p>
       ${previousHTML}`;
@@ -404,6 +531,12 @@ function renderControls() {
   const n = els.pitch.value.length;
   els.counter.className = `counter ${n > MAX_PITCH_CHARS ? "over" : n > WARN_PITCH_CHARS ? "warn" : "ok"}`;
   els.counter.textContent = n > MAX_PITCH_CHARS ? t("counterOver", n, MAX_PITCH_CHARS) : t("counter", n);
+  // Combined counter: what a submission review would send (pitch + criteria + documents with text).
+  const sub = activeSubmission(readSubmission());
+  const total = n + (sub ? sub.criteria.length + sub.attachments.reduce((sum, a) => sum + a.text.trim().length, 0) : 0);
+  els.totalCounter.className = `counter ${total > MAX_TOTAL_CHARS ? "over" : "ok"}`;
+  els.totalCounter.textContent = t(total > MAX_TOTAL_CHARS ? "totalOver" : "totalCounter", total, MAX_TOTAL_CHARS);
+  els.submissionFields.disabled = state.running;
   // Retry buttons follow the round lock too.
   els.panel.querySelectorAll("[data-retry]").forEach((b) => (b.disabled = state.running));
 }
@@ -414,6 +547,8 @@ function applyLang() {
   document.title = t("pageTitle");
   document.querySelectorAll("[data-i18n]").forEach((el) => (el.textContent = t(el.dataset.i18n)));
   els.pitch.placeholder = t("placeholder");
+  els.attachments.querySelectorAll(".att-text").forEach((el) => (el.placeholder = t("docPlaceholder")));
+  els.attachments.querySelectorAll(".att-label").forEach((el) => el.setAttribute("aria-label", t("labelField")));
   els.langButtons.forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.lang === lang)));
   JUDGES.forEach(renderCard);
   renderBadge();
@@ -434,6 +569,7 @@ function setVerdictLang(next) {
 // --- Wiring --------------------------------------------------------------------
 
 buildPanel();
+buildSubmissionForm();
 load();
 els.verdictLang.value = verdictLang;
 applyLang();
@@ -443,6 +579,13 @@ els.submit.addEventListener("click", submitRound);
 els.newPitch.addEventListener("click", newPitch);
 els.langButtons.forEach((b) => b.addEventListener("click", () => setLang(b.dataset.lang)));
 els.verdictLang.addEventListener("change", () => setVerdictLang(els.verdictLang.value));
+els.submissionFields.addEventListener("input", onSubmissionInput);
+els.attachments.addEventListener("click", (e) => {
+  e.target.closest(".att-load")?.closest(".attachment").querySelector(".att-file").click();
+});
+els.attachments.addEventListener("change", (e) => {
+  if (e.target.matches(".att-file")) loadAttachmentFile(e.target);
+});
 els.panel.addEventListener("click", (e) => {
   const id = e.target.closest("[data-retry]")?.dataset.retry;
   if (id) retryJudge(id);

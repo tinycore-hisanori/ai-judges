@@ -41,6 +41,7 @@ export const JUDGES = [
     color: "#5b7a99",
     portrait: "assets/portraits/vera.png",
     seed: 101,
+    homeCriterion: { name: "Design", focus: "a complete, coherent product" },
     systemPrompt: `${SHARED_RULES}
 
 You are Vera Lind, a skeptical senior engineer. Your priority: can this actually be built and does it actually work?
@@ -57,6 +58,7 @@ If the pitch states what the product does or how it works, the band cannot be 0-
     color: "#b5563b",
     portrait: "assets/portraits/marco.png",
     seed: 202,
+    homeCriterion: { name: "Presentation", focus: "the problem, who it is for, and why it matters" },
     systemPrompt: `${SHARED_RULES}
 
 You are Marco Reyes, a blunt product marketer. Your priority: who would actually use this, and why would they care?
@@ -72,6 +74,7 @@ If the idea resembles a well-known existing product, name it and ask what's diff
     color: "#3f6b4f",
     portrait: "assets/portraits/ingrid.png",
     seed: 303,
+    homeCriterion: { name: "Innovation/Idea", focus: "how novel it is next to existing concepts" },
     systemPrompt: `${SHARED_RULES}
 
 You are Ingrid Haas, an unimpressed early-stage investor. Your priority: how does this make money, and is it worth anything?
@@ -79,7 +82,9 @@ You look for no business model, no paying customer, a tiny market, and nothing t
   },
 ];
 
+
 export const MAX_PITCH_CHARS = 6000;
+export const MAX_TOTAL_CHARS = 12000; // pitch + criteria + attachments, in submission review
 
 // "auto" adds nothing: the judges already answer in the pitch's language,
 // and an explicit "answer in the pitch's language" line shifted the demo scores.
@@ -90,15 +95,98 @@ export const VERDICT_LANG_LINES = {
   ja: "Hard rule: Write reason and fix in Japanese. Keep the quoted evidence in its original language.",
 };
 
-export function buildMessages(judge, pitch, previous, verdictLang = "auto") {
-  const langLine = VERDICT_LANG_LINES[verdictLang] ?? "";
-  const messages = [{ role: "system", content: langLine ? `${judge.systemPrompt}\n\n${langLine}` : judge.systemPrompt }];
+// "ja" when kana/kanji make up a real share of the text, otherwise "en".
+export function pitchLanguage(text) {
+  const cjk = (text.match(/[぀-ヿ㐀-鿿]/g) || []).length;
+  const latin = (text.match(/[A-Za-z]/g) || []).length;
+  return cjk > latin / 4 ? "ja" : "en";
+}
+
+// Verbatim from the Devpost page; editable in the UI.
+export const DEFAULT_CRITERIA = `Design — Does the project deliver a complete, coherent product experience — not just a technical proof of concept?
+Innovation/Idea — How creative and novel is the concept and does the project differ from existing concepts?
+Presentation — Does the video clearly demonstrate the project working end-to-end? Does the pitch communicate what problem is solved, who it's for, and why it matters? Is the overall presentation easy to follow?`;
+
+const SUBMISSION_RULES = `This time you also get the team's submission documents and the hackathon's judging criteria.
+Keep your persona and your priority; the criteria do not replace them.
+Judge evidence against the criteria, not volume. Restating the same point in another document earns nothing.
+Each document sits between "=== <name> ===" and "=== End of <name> ===". Headings inside a document are part of it, not separate documents.
+Extra fields:`;
+const sourceRule = (names) =>
+  `- "evidence": copied word for word from one document; it must appear in it exactly.
+- "source": the name of the document that evidence was copied from, exactly one of: ${names.map((n) => `"${n}"`).join(", ")}.`;
+
+const FREE_CRITERION_RULE = `- "criterion": the ONE judging criterion your verdict maps to, written exactly as named in the criteria (for example "Presentation").`;
+const homeCriterionRule = ({ name, focus }) =>
+  `- "criterion": always "${name}". It is your home criterion: judge ${focus}. You may mention a second criterion in the reason, but this field stays "${name}".`;
+const REASON_SOURCE_RULE = `In "reason", name the document you quote from, e.g. In the Project story, "..." never says ...`;
+
+// Submission review is on only when at least one attachment has text.
+export function activeSubmission(submission) {
+  const attachments = (submission?.attachments ?? []).filter((a) => a.text.trim());
+  return attachments.length ? { attachments, criteria: submission.criteria.trim() } : null;
+}
+
+// One criterion per non-empty line; its name is the text before " — " (or " - " / ":").
+export function criterionNames(criteria) {
+  return criteria.split("\n").map((l) => l.split(/\s+[—–-]\s+|:\s/)[0].trim()).filter(Boolean);
+}
+
+// With exactly one criterion per judge and every home criterion listed, each judge's
+// criterion is fixed so the panel covers them all. Otherwise the judge picks freely.
+export function homeCriterion(judge, names) {
+  const homes = JUDGES.map((j) => j.homeCriterion.name.toLowerCase());
+  const lower = names.map((n) => n.toLowerCase());
+  const fixed = names.length === JUDGES.length && homes.every((h) => lower.includes(h));
+  return fixed ? names[lower.indexOf(judge.homeCriterion.name.toLowerCase())] : null;
+}
+
+// Pitch first, then criteria, then documents in order, until MAX_TOTAL_CHARS is used up.
+function submissionParts(pitch, submission) {
+  const pitchText = pitch.slice(0, MAX_PITCH_CHARS);
+  let budget = MAX_TOTAL_CHARS - pitchText.length;
+  const criteria = submission.criteria.slice(0, Math.max(0, budget));
+  budget -= criteria.length;
+  const docs = [];
+  for (const a of submission.attachments) {
+    if (budget <= 0) break;
+    const text = a.text.trim().slice(0, budget);
+    budget -= text.length;
+    docs.push({ label: a.label.trim() || "Document", text });
+  }
+  return { pitchText, criteria, docs };
+}
+
+// The documents exactly as the judges received them, for checking "source" and "evidence".
+export function submissionDocuments(pitch, submission) {
+  const { pitchText, docs } = submissionParts(pitch, submission);
+  return [{ label: "Pitch", text: pitchText }, ...docs];
+}
+
+export function buildMessages(judge, pitch, previous, { verdictLang = "auto", submission = null } = {}) {
+  // A selected language equal to the pitch's own adds nothing, so it scores exactly like Auto.
+  const langLine = verdictLang === pitchLanguage(pitch) ? "" : VERDICT_LANG_LINES[verdictLang] ?? "";
+  const parts = submission && submissionParts(pitch, submission);
+  let system = judge.systemPrompt;
+  if (parts) {
+    const home = homeCriterion(judge, criterionNames(parts.criteria));
+    const criterionRule = home ? homeCriterionRule({ ...judge.homeCriterion, name: home }) : FREE_CRITERION_RULE;
+    const names = ["Pitch", ...parts.docs.map((d) => d.label)];
+    system += `\n\n${SUBMISSION_RULES}\n${sourceRule(names)}\n${criterionRule}\n${REASON_SOURCE_RULE}`;
+    if (parts.criteria) system += `\n\nJudging criteria:\n${parts.criteria}`;
+  }
+  if (langLine) system += `\n\n${langLine}`;
+  const messages = [{ role: "system", content: system }];
   if (previous) {
     messages.push({
       role: "system",
       content: `For reference, last round you gave ${previous.score}.`,
     });
   }
-  messages.push({ role: "user", content: pitch.slice(0, MAX_PITCH_CHARS) });
+  const user = parts
+    ? [{ label: "Pitch", text: parts.pitchText }, ...parts.docs]
+        .map((d) => `=== ${d.label} ===\n${d.text}\n=== End of ${d.label} ===`).join("\n\n")
+    : pitch.slice(0, MAX_PITCH_CHARS);
+  messages.push({ role: "user", content: user });
   return messages;
 }

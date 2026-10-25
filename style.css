@@ -166,6 +166,31 @@ body {
   resize: vertical;
 }
 .pitch textarea[readonly] { opacity: 0.7; }
+
+/* --- Submission attachments (inside the pitch section, so textareas match the pitch box) --- */
+.submission { margin-top: 14px; color: #cfc8b8; }
+.submission summary { cursor: pointer; font-weight: 600; color: var(--gold); }
+.submission fieldset { border: none; margin: 0; padding: 0; min-width: 0; }
+.submission fieldset:disabled { opacity: 0.7; }
+.submission .hint { margin: 8px 0 12px; font-size: 0.85rem; }
+.attachments { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; }
+.attachment { min-width: 0; }
+.att-head { display: flex; gap: 8px; margin-bottom: 6px; }
+.att-label {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 10px;
+  font: 600 0.9rem/1.2 var(--body);
+  color: var(--card);
+  background: transparent;
+  border: 1px solid var(--muted);
+  border-radius: 6px;
+}
+.btn.att-load { font: 600 0.8rem/1 var(--body); letter-spacing: 0; padding: 6px 10px; white-space: nowrap; }
+.pitch .att-text, .pitch #criteria { font-size: 0.9rem; padding: 10px; }
+.criteria-field { display: block; margin-top: 14px; }
+.criteria-field span { display: block; font-weight: 600; margin-bottom: 6px; }
+.criterion { margin: 0; font-size: 0.8rem; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); }
 .counter { margin-top: 6px; font-size: 0.85rem; color: #cfc8b8; }
 
 .controls { display: flex; gap: 12px; margin-top: 14px; }

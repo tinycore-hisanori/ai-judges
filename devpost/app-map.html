@@ -53,7 +53,7 @@
     <div class="piece"><h3><code>index.html</code> + <code>style.css</code></h3><p>The stage: header, language toggle, the three cards, the pitch box and the total badge.</p></div>
     <div class="piece"><h3><code>judges.js</code></h3><p>Who the judges are: <code>MODEL</code>, the shared rules, each persona prompt and seed, and <code>buildMessages</code>.</p></div>
     <div class="piece"><h3><code>app.js</code></h3><p>Everything that happens: running a round, the one model call, checking answers, rendering, saving, UI strings.</p></div>
-    <div class="piece"><h3>Ollama (local)</h3><p><code>POST http://localhost:11434/api/chat</code> with a JSON schema, temperature 0.2, a fixed seed per judge and <code>num_ctx: 6144</code>.</p></div>
+    <div class="piece"><h3>Ollama (local)</h3><p><code>POST http://localhost:11434/api/chat</code> with a JSON schema, temperature 0.2, a fixed seed per judge and <code>num_ctx: 6144</code> (12288 in submission review, which needs Ollama's q8_0 KV cache).</p></div>
   </div>
 
   <h2>One action: “Submit to the panel”</h2>
@@ -116,7 +116,7 @@
     </div></li>
     <li><div class="stop">
       <h3><code>SHARED_RULES</code>, <code>JUDGES</code> and <code>buildMessages()</code> in <code>judges.js</code></h3>
-      <p>The judging behaviour is all prompt: the rubric bands, the evidence → band → reason → score → fix order, and each persona's priority. <code>buildMessages</code> sends the persona prompt, then (on a resubmit) only “For reference, last round you gave N.”, then the pitch, cut to 6,000 characters.</p>
+      <p>The judging behaviour is all prompt: the rubric bands, the evidence → band → reason → score → fix order, and each persona's priority. <code>buildMessages</code> sends the persona prompt, then (on a resubmit) only “For reference, last round you gave N.”, then the pitch, cut to 6,000 characters. In submission review (v1.1, only when a document has text) it adds the criteria rules and wraps the pitch and each document in <code>=== name ===</code> markers, 12,000 characters in all.</p>
     </div></li>
     <li><div class="stop">
       <h3><code>callJudge()</code> → <code>askJudge()</code> → <code>validateVerdict()</code> in <code>app.js</code></h3>
@@ -140,6 +140,7 @@ if (v.fix.trim().length &gt; MAX_FIX_CHARS) fail("fix is a rewrite, not one chan
     <tr><td>The pass mark (70)</td><td><code>ADVANCE_THRESHOLD</code>, <code>app.js</code></td></tr>
     <tr><td>Any button, label or message (EN or JA)</td><td><code>STRINGS</code>, <code>app.js</code>; static page text is tagged <code>data-i18n</code> in <code>index.html</code></td></tr>
     <tr><td>Character limits or the fix cap</td><td><code>MAX_PITCH_CHARS</code> (<code>judges.js</code>), <code>MIN_PITCH_CHARS</code> / <code>WARN_PITCH_CHARS</code> / <code>MAX_FIX_CHARS</code> (<code>app.js</code>)</td></tr>
+    <tr><td>Submission review: criteria, home criteria, limits</td><td><code>DEFAULT_CRITERIA</code>, <code>homeCriterion</code> on each judge, <code>SUBMISSION_RULES</code>, <code>MAX_TOTAL_CHARS</code> (<code>judges.js</code>); <code>SUBMISSION_SCHEMA</code>, <code>SUBMISSION_NUM_CTX</code>, the source/evidence check in <code>validateVerdict</code> (<code>app.js</code>)</td></tr>
     <tr><td>Portraits</td><td>Edit <code>assets/portraits/src/*.svg</code>, then run <code>assets/portraits/src/render.mjs</code></td></tr>
     <tr><td>Colours and fonts</td><td>The <code>:root</code> tokens at the top of <code>style.css</code></td></tr>
   </table>
@@ -153,6 +154,8 @@ if (v.fix.trim().length &gt; MAX_FIX_CHARS) fail("fix is a rewrite, not one chan
 
   <h2>Run it again</h2>
 <pre>ollama pull qwen2.5:32b        # once
+setx OLLAMA_FLASH_ATTENTION 1  # once, then restart Ollama from the tray
+setx OLLAMA_KV_CACHE_TYPE q8_0
 python -m http.server 8000     # in the project folder
 # open http://localhost:8000</pre>
   <p class="meta">If the browser's calls to Ollama are blocked by CORS, set <code>OLLAMA_ORIGINS=http://localhost:8000</code> and restart Ollama. Planning documents: <code>devpost/scope.md</code>, <code>prd.md</code>, <code>spec.md</code>, <code>checklist.md</code>.</p>
