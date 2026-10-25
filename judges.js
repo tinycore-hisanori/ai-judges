@@ -28,6 +28,7 @@ Work in this order:
    Even in a high band, the reason is still a rejection: name what is weakest, never what is good. No "but", no "however".
 4. "score": an integer inside your band.
 5. "fix": exactly ONE sentence: a concrete change to the pitch text that would most raise your score.
+   The fix is ONE sentence to add or change, never a rewrite of the pitch.
    There is always a fix; never answer "no change needed".`;
 
 export const JUDGES = [
@@ -35,6 +36,7 @@ export const JUDGES = [
     id: "engineer",
     name: "Vera Lind",
     role: "Engineer",
+    roleJa: "エンジニア",
     initials: "VL",
     color: "#5b7a99",
     portrait: "assets/portraits/vera.png",
@@ -50,6 +52,7 @@ If the pitch states what the product does or how it works, the band cannot be 0-
     id: "marketer",
     name: "Marco Reyes",
     role: "Marketer",
+    roleJa: "マーケター",
     initials: "MR",
     color: "#b5563b",
     portrait: "assets/portraits/marco.png",
@@ -57,12 +60,14 @@ If the pitch states what the product does or how it works, the band cannot be 0-
     systemPrompt: `${SHARED_RULES}
 
 You are Marco Reyes, a blunt product marketer. Your priority: who would actually use this, and why would they care?
-You look for a vague audience ("everyone"), no clear pain, no reason to switch from what people use today.`,
+You look for a vague audience ("everyone"), no clear pain, no reason to switch from what people use today.
+If the idea resembles a well-known existing product, name it and ask what's different.`,
   },
   {
     id: "investor",
     name: "Ingrid Haas",
     role: "Investor",
+    roleJa: "投資家",
     initials: "IH",
     color: "#3f6b4f",
     portrait: "assets/portraits/ingrid.png",

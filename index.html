@@ -9,12 +9,17 @@
 </head>
 <body>
   <main class="stage">
+    <div class="lang-toggle" role="group" aria-label="Language">
+      <button type="button" data-lang="en" aria-pressed="true">EN</button>
+      <button type="button" data-lang="ja" aria-pressed="false">JA</button>
+    </div>
+
     <header class="masthead">
-      <h1>AI Judges</h1>
-      <p class="tagline">Three judges. One pitch. Rewrite until they change their minds.</p>
+      <h1 data-i18n="title">AI Judges</h1>
+      <p class="tagline" data-i18n="tagline">Three judges. One pitch. Rewrite until they change their minds.</p>
     </header>
 
-    <div id="banner" class="banner" hidden>Can't reach the local model. Is Ollama running?</div>
+    <div id="banner" class="banner" data-i18n="banner" hidden>Can't reach the local model. Is Ollama running?</div>
 
     <section id="panel" class="panel" aria-label="Judging panel"></section>
 
@@ -23,7 +28,7 @@
       <div id="counter" class="counter">0 characters</div>
       <div class="controls">
         <button id="submit" class="btn primary" disabled>Submit to the panel</button>
-        <button id="newPitch" class="btn ghost">New pitch</button>
+        <button id="newPitch" class="btn ghost" data-i18n="newPitch">New pitch</button>
       </div>
     </section>
 

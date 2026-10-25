@@ -7,6 +7,70 @@ const JUDGE_TIMEOUT_MS = 60_000;
 const STORAGE_KEY = "aiJudges.v1";
 const COUNT_UP_MS = 600;
 const ADVANCE_THRESHOLD = 70;
+const MAX_FIX_CHARS = 300; // longer than this is a rewrite of the pitch, not one change
+const LANG_KEY = "aiJudges.lang";
+
+// --- UI strings ----------------------------------------------------------------
+// UI only: judges answer in the language of the pitch, whatever this is set to.
+
+const STRINGS = {
+  en: {
+    pageTitle: "AI Judges",
+    title: "AI Judges",
+    tagline: "Three judges. One pitch. Rewrite until they change their minds.",
+    placeholder: "Paste your pitch — 3 to 5 lines",
+    submit: "Submit to the panel",
+    deliberating: "Panel is deliberating…",
+    newPitch: "New pitch",
+    banner: "Can't reach the local model. Is Ollama running?",
+    waitingPitch: "Waiting for your pitch…",
+    reading: "Reading…",
+    failed: "The judge left the room — retry",
+    retry: "Retry",
+    fixLabel: "Fix: ",
+    noChange: "no change",
+    previousRound: "Previous round",
+    waitingJudges: (n) => `Waiting for ${n} judge${n === 1 ? "" : "s"}`,
+    advance: "Would advance",
+    reject: "Would not advance",
+    counter: (n) => `${n} characters`,
+    counterOver: (n, max) => `${n} characters — Judges stop reading after ~${max} characters`,
+    role: (j) => j.role,
+  },
+  ja: {
+    pageTitle: "AI審査員",
+    title: "AI審査員",
+    tagline: "審査員は3人、ピッチは1つ。考えが変わるまで書き直そう。",
+    placeholder: "ピッチを貼り付けてください（3〜5行）",
+    submit: "審査に出す",
+    deliberating: "審査中…",
+    newPitch: "新しいピッチ",
+    banner: "ローカルモデルに接続できません。Ollama は起動していますか？",
+    waitingPitch: "ピッチを待っています…",
+    reading: "読んでいます…",
+    failed: "審査員が退席しました — 再試行してください",
+    retry: "再試行",
+    fixLabel: "改善案：",
+    noChange: "変化なし",
+    previousRound: "前回のラウンド",
+    waitingJudges: (n) => `あと${n}人の審査員を待っています`,
+    advance: "通過",
+    reject: "不通過",
+    counter: (n) => `${n}文字`,
+    counterOver: (n, max) => `${n}文字 — 審査員が読むのは約${max}文字までです`,
+    role: (j) => j.roleJa,
+  },
+};
+
+function loadLang() {
+  try { return localStorage.getItem(LANG_KEY) === "ja" ? "ja" : "en"; } catch { return "en"; }
+}
+
+let lang = loadLang();
+const t = (key, ...args) => {
+  const s = STRINGS[lang][key];
+  return typeof s === "function" ? s(...args) : s;
+};
 
 // Evidence-first: the model copies the relevant pitch sentence and picks a band
 // before it writes the reason and score. Only reason/score/fix are kept.
@@ -43,7 +107,7 @@ export function panelTotal(scores) {
 export function scoreDelta(prev, next) {
   if (prev == null) return null;
   const d = next - prev;
-  if (d === 0) return { kind: "same", text: "no change" };
+  if (d === 0) return { kind: "same", text: STRINGS.en.noChange };
   return d > 0 ? { kind: "up", text: `▲${d}` } : { kind: "down", text: `▼${-d}` };
 }
 
@@ -75,8 +139,9 @@ export function validateVerdict(v) {
   if (!v || typeof v !== "object") fail("verdict is not an object");
   if (!Number.isInteger(v.score) || v.score < 0 || v.score > 100) fail("score out of range");
   if (typeof v.reason !== "string" || !v.reason.trim()) fail("empty reason");
-  if (/["“]\s*["”]/.test(v.reason)) fail("empty quote in reason");
+  if (/["“「]\s*["”」]/.test(v.reason)) fail("empty quote in reason");
   if (typeof v.fix !== "string" || !v.fix.trim()) fail("empty fix");
+  if (v.fix.trim().length > MAX_FIX_CHARS) fail("fix is a rewrite, not one change");
   return { score: v.score, reason: v.reason.trim(), fix: v.fix.trim() };
 }
 
@@ -213,6 +278,7 @@ const els = {
   newPitch: document.getElementById("newPitch"),
   badge: document.getElementById("badge"),
   banner: document.getElementById("banner"),
+  langButtons: document.querySelectorAll("[data-lang]"),
 };
 
 function portraitHTML(judge) {
@@ -230,7 +296,7 @@ function buildPanel() {
     (j) => `
     <article class="card waiting" id="card-${j.id}" data-judge="${j.id}">
       ${portraitHTML(j)}
-      <div class="who"><h2>${j.name}</h2><span class="role">${j.role}</span></div>
+      <div class="who"><h2>${j.name}</h2><span class="role"></span></div>
       <div class="body"></div>
     </article>`
   ).join("");
@@ -242,18 +308,19 @@ function escapeHTML(s) {
 
 function renderCard(judge) {
   const card = document.getElementById(`card-${judge.id}`);
+  card.querySelector(".role").textContent = t("role", judge);
   const status = state.status[judge.id];
   card.className = `card ${status}`;
   const body = card.querySelector(".body");
 
   if (status === "waiting") {
-    body.innerHTML = `<p class="status">Waiting for your pitch…</p>`;
+    body.innerHTML = `<p class="status">${t("waitingPitch")}</p>`;
   } else if (status === "reading") {
-    body.innerHTML = `<p class="status">Reading…</p>`;
+    body.innerHTML = `<p class="status">${t("reading")}</p>`;
   } else if (status === "failed") {
     body.innerHTML = `
-      <p class="status failed-msg">The judge left the room</p>
-      <button class="btn retry" data-retry="${judge.id}" ${state.running ? "disabled" : ""}>Retry</button>`;
+      <p class="status failed-msg">${t("failed")}</p>
+      <button class="btn retry" data-retry="${judge.id}" ${state.running ? "disabled" : ""}>${t("retry")}</button>`;
   } else {
     const v = state.current[judge.id];
     const prev = state.previous[judge.id];
@@ -261,19 +328,19 @@ function renderCard(judge) {
     const deltaHTML = !delta
       ? ""
       : delta.kind === "same"
-        ? `<span class="delta same">no change</span>`
+        ? `<span class="delta same">${t("noChange")}</span>`
         : `<span class="delta ${delta.kind}">${prev.score} → ${v.score} ${delta.text}</span>`;
     const previousHTML = prev
       ? `<details class="previous">
-           <summary>Previous round</summary>
+           <summary>${t("previousRound")}</summary>
            <p><strong>${prev.score}/100</strong> — ${escapeHTML(prev.reason)}</p>
-           <p class="fix">${escapeHTML(prev.fix)}</p>
+           <p class="fix" data-label="${t("fixLabel")}">${escapeHTML(prev.fix)}</p>
          </details>`
       : "";
     body.innerHTML = `
       <div class="score-row"><span class="score">${v.score}<small>/100</small></span>${deltaHTML}</div>
       <p class="reason">${escapeHTML(v.reason)}</p>
-      <p class="fix">${escapeHTML(v.fix)}</p>
+      <p class="fix" data-label="${t("fixLabel")}">${escapeHTML(v.fix)}</p>
       ${previousHTML}`;
   }
 }
@@ -290,15 +357,15 @@ function renderBadge(from = null) {
   const missing = verdicts.filter((v) => !v).length;
   if (missing) {
     els.badge.className = "badge pending";
-    els.badge.innerHTML = `<span class="badge-wait">Waiting for ${missing} judge${missing === 1 ? "" : "s"}</span>`;
+    els.badge.innerHTML = `<span class="badge-wait">${t("waitingJudges", missing)}</span>`;
     return;
   }
   const { total, advances } = panelTotal(verdicts.map((v) => v.score));
   els.badge.className = `badge ${advances ? "advance" : "reject"}`;
   els.badge.innerHTML = `
     <div class="badge-total">${total}</div>
-    <div class="badge-verdict">${advances ? "Would advance" : "Would not advance"}</div>
-    <div class="badge-scores">${JUDGES.map((j) => `<span>${j.role} ${state.current[j.id].score}</span>`).join("")}</div>`;
+    <div class="badge-verdict">${t(advances ? "advance" : "reject")}</div>
+    <div class="badge-scores">${JUDGES.map((j) => `<span>${t("role", j)} ${state.current[j.id].score}</span>`).join("")}</div>`;
   if (from != null && from !== total) countUp(els.badge.querySelector(".badge-total"), from, total);
 }
 
@@ -315,29 +382,44 @@ function countUp(el, from, to) {
 
 function renderControls() {
   els.pitch.readOnly = state.running;
-  els.submit.textContent = state.running ? "Panel is deliberating…" : "Submit to the panel";
+  els.submit.textContent = t(state.running ? "deliberating" : "submit");
   els.submit.disabled = state.running || els.pitch.value.trim().length < MIN_PITCH_CHARS;
   els.newPitch.disabled = state.running;
   const n = els.pitch.value.length;
   els.counter.className = `counter ${n > MAX_PITCH_CHARS ? "over" : n > WARN_PITCH_CHARS ? "warn" : "ok"}`;
-  els.counter.textContent = n > MAX_PITCH_CHARS
-    ? `${n} characters — Judges stop reading after ~${MAX_PITCH_CHARS} characters`
-    : `${n} characters`;
+  els.counter.textContent = n > MAX_PITCH_CHARS ? t("counterOver", n, MAX_PITCH_CHARS) : t("counter", n);
   // Retry buttons follow the round lock too.
   els.panel.querySelectorAll("[data-retry]").forEach((b) => (b.disabled = state.running));
+}
+
+// Static page text, then everything rendered from state, in the current language.
+function applyLang() {
+  document.documentElement.lang = lang;
+  document.title = t("pageTitle");
+  document.querySelectorAll("[data-i18n]").forEach((el) => (el.textContent = t(el.dataset.i18n)));
+  els.pitch.placeholder = t("placeholder");
+  els.langButtons.forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.lang === lang)));
+  JUDGES.forEach(renderCard);
+  renderBadge();
+  renderControls();
+}
+
+function setLang(next) {
+  lang = next;
+  try { localStorage.setItem(LANG_KEY, lang); } catch {}
+  applyLang();
 }
 
 // --- Wiring --------------------------------------------------------------------
 
 buildPanel();
 load();
-JUDGES.forEach(renderCard);
-renderBadge();
-renderControls();
+applyLang();
 
 els.pitch.addEventListener("input", renderControls);
 els.submit.addEventListener("click", submitRound);
 els.newPitch.addEventListener("click", newPitch);
+els.langButtons.forEach((b) => b.addEventListener("click", () => setLang(b.dataset.lang)));
 els.panel.addEventListener("click", (e) => {
   const id = e.target.closest("[data-retry]")?.dataset.retry;
   if (id) retryJudge(id);

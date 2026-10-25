@@ -43,6 +43,7 @@ body {
 }
 
 .stage {
+  position: relative;
   max-width: 1000px;
   margin: 0 auto;
   padding: 32px 16px 64px;
@@ -150,7 +151,7 @@ body {
 
 .reason { font-weight: 600; margin: 0; }
 .fix { margin: 0; }
-.fix::before { content: "Fix: "; color: var(--gold); font-weight: 600; }
+.fix::before { content: attr(data-label); color: var(--gold); font-weight: 600; }
 
 /* --- Pitch box --- */
 .pitch { margin-top: 32px; }
@@ -211,8 +212,39 @@ body {
 
 /* --- Failure + counter states --- */
 .failed-msg { color: var(--down); font-style: normal; font-weight: 600; }
-.failed-msg::after { content: " — retry"; }
 .btn.retry { align-self: flex-start; font-size: 1.1rem; padding: 6px 16px; background: var(--ink); color: var(--card); border: none; }
 .card.failed .portrait { filter: grayscale(1); opacity: 0.5; }
 .counter.warn { color: #e0a43a; }
 .counter.over { color: #ff6b57; font-weight: 600; }
+
+/* --- Language toggle --- */
+.lang-toggle {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  display: flex;
+  border: 1px solid var(--muted);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.lang-toggle button {
+  font: 600 0.8rem/1 var(--body);
+  letter-spacing: 0.06em;
+  padding: 6px 10px;
+  background: transparent;
+  color: #cfc8b8;
+  border: none;
+  cursor: pointer;
+}
+.lang-toggle button[aria-pressed="true"] { background: var(--gold); color: var(--bg); }
+@media (max-width: 760px) {
+  /* No room beside the title on a phone: sit above it, right-aligned. */
+  .lang-toggle { position: static; width: max-content; margin: 0 0 12px auto; }
+}
+
+/* Japanese: Bebas Neue and Inter have no kana/kanji, so fall back to Japanese system fonts. */
+:root:lang(ja) {
+  --display: "Bebas Neue", "Hiragino Sans", "Yu Gothic UI", "Meiryo", sans-serif;
+  --body: "Inter", "Hiragino Sans", "Yu Gothic UI", "Meiryo", system-ui, sans-serif;
+}
+.card { min-width: 0; overflow-wrap: anywhere; }

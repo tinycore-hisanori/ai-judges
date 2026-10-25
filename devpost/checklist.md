@@ -54,11 +54,15 @@ Verification approach: API checks with `curl` against local Ollama, plus a throw
 ## Hands-on Checkpoints
 
 - [x] Early usable behavior explored — after slice 2: real pitches, resubmits, and feedback on judge tone, scoring, and stage look before slices 3–4
-- [ ] Final kick-the-tires exploration and feedback completed
+- [x] Final kick-the-tires exploration and feedback completed — learner tried a Japanese pitch (correct, specific verdicts in Japanese) and found one investor fix that rewrote the whole pitch
 
 ## Final Review
 
-- [ ] Final review complete — feedback resolved and learner confirms ready to ship
+- [x] Judges answer in the language of the pitch — kept as the model's own behaviour and documented in the README; the explicit prompt line was dropped because it broke the demo story (learner chose option B)
+- [x] Fix is one sentence to add or change, never a rewrite — prompt rule, and fixes over 300 characters are rejected with one retry
+- [x] Marketer names a well-known similar product and asks what's different (prompt rule; it didn't fire on the test pitches)
+- [x] Japanese UI — EN / JA toggle, top right, English default, saved in localStorage; all UI strings in `STRINGS` (en/ja); roles relabelled, names unchanged; judge requests identical in both languages
+- [x] Final review complete — feedback resolved and learner confirms ready to ship
 
 ## Code Tour and App Map
 
@@ -84,3 +88,5 @@ Activity mode:
 - Demo story verified on 32B in the real UI: the learner's three rounds score 30 → 48 → 75 (Would advance); the learner reproduced it at the hands-on checkpoint.
 - Portraits drawn as flat-shaded SVG and rendered to 512×512 PNG instead of generated with Codex — no image model was available in the build session. Sources and the render script are in `assets/portraits/src/`.
 - Final verification (32B, 100% GPU, `num_ctx` 4096): mocked checks s3 (18), s4 (8), retry (7) pass; real-model s1 (13), s2 (38) and the 3-round story pass; CORS allows `http://localhost:8000`. s2 had been reading the badge mid count-up (a test written before slice 4), so it now waits for the animation. Fixed seed + temperature 0.2 is not bit-exact on the GPU: the same recipe pitch gave the engineer 50 in one run and 45 in another. The demo story reproduced 30 → 48 → 75 in all four runs.
+- Final-review prompt changes: "The fix is ONE sentence to add or change, never a rewrite of the pitch", a 300-character fix cap (one retry), the marketer's "name the well-known product" rule, and `「」` added to the empty-quote check. An explicit "Answer in the language of the pitch" line was tested and dropped: in every placement, the engineer's seed (101) moved the demo's round 3 from 75 to 50 (total 67, Would not advance). Rewriting the round-3 pitch fixed the engineer but dropped the marketer to 45. Without the line, the story holds at 30 → 48 → 75 and Japanese pitches still get Japanese verdicts (one reason came back in English after the quote).
+- Japanese UI moved from Deferred into the build at the learner's request, kept small: one `STRINGS` object with `t()`, `data-i18n` on static text, `data-label` for the "Fix:" prefix (replacing CSS `content` strings), Japanese system-font fallback, and the toggle moved above the title on phones (it overlapped the title at 390 px). Verified with mocked verdicts in EN and JA at 1200 px and 390 px: no overflow in the done, previous-round, failed or banner states; English strings unchanged; requests identical in both languages; the choice persists across reloads. Real-model story re-verified afterwards: 30 → 48 → 75.

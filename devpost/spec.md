@@ -81,7 +81,7 @@ Static markup: the header (title and tagline), the all-fail banner (hidden), the
 PRD ref: `prd.md > Screens and Layout`.
 
 ### Judge Definitions (`judges.js`)
-- Exports `JUDGES`, an ordered array of `{ id, name, role, priority, initials, color, portrait, seed, systemPrompt }`:
+- Exports `JUDGES`, an ordered array of `{ id, name, role, roleJa, priority, initials, color, portrait, seed, systemPrompt }` (`roleJa` is the Japanese UI label: エンジニア / マーケター / 投資家):
   - `engineer` (Vera Lind, seed 101)
   - `marketer` (Marco Reyes, seed 202)
   - `investor` (Ingrid Haas, seed 303)
@@ -89,8 +89,10 @@ PRD ref: `prd.md > Screens and Layout`.
   - read the pitch fresh; never cite as missing something the pitch states
   - be blunt: no praise, no "however"; quote the pitch's weakest sentence
   - rubric bands: 0–30 absent, 40–60 vague, 70–85 specific and credible, 90+ exceptional; the score must sit inside a band
-  - the reason is one sentence starting "Band X-Y (label):" plus the quote and why; the fix is one concrete sentence, never "no change needed"
+  - the reason is one sentence starting "Band X-Y (label):" plus the quote and why; the fix is one concrete sentence, never "no change needed", and "ONE sentence to add or change, never a rewrite of the pitch"
+  - no explicit language rule: 32B already answers in the pitch's language. An explicit "answer in the language of the pitch" line was tried and dropped, because it moved the engineer's round-3 verdict on the demo story from 75 to 50 (wherever the line was placed)
   - the engineer also gets "Judge only what is claimed; do not invent requirements." and "If the pitch states what the product does or how it works, the band cannot be 0-30; 'absent' is only for pitches that never say what the thing does." (stopped a 45 → 20 flip on the recipe rewrite)
+  - the marketer also gets "If the idea resembles a well-known existing product, name it and ask what's different."
 - Exports `buildMessages(judge, pitch, previous)`, which returns:
   - `system`: `judge.systemPrompt`
   - if `previous` exists, a `system` note: "For reference, last round you gave {score}." (score only; the persona prompt already says to read the pitch fresh)
@@ -103,7 +105,7 @@ The only function that talks to the model, and the seam for a later provider swi
 PRD ref: `prd.md > Deliberation and Reveal`.
 
 ### Verdict Validation (`validateVerdict` in `app.js`)
-Accepts only when `score` is an integer from 0 to 100 and `reason` and `fix` are non-empty strings after trimming, and `reason` contains no empty quote (`""` or `“”`), and keeps only `{score, reason, fix}`. An unusable answer gets **one automatic retry with `seed + 1`** (the same seed would repeat the same answer); a second unusable answer marks the judge failed. Network, HTTP and timeout errors are not retried, so "Ollama is down" doesn't double the wait.
+Accepts only when `score` is an integer from 0 to 100 and `reason` and `fix` are non-empty strings after trimming, and `reason` contains no empty quote (`""`, `“”` or `「」`), and `fix` is at most 300 characters (longer is a rewrite of the pitch, not one change), and keeps only `{score, reason, fix}`. An unusable answer gets **one automatic retry with `seed + 1`** (the same seed would repeat the same answer); a second unusable answer marks the judge failed. Network, HTTP and timeout errors are not retried, so "Ollama is down" doesn't double the wait.
 PRD ref: `prd.md > States and Boundaries` (unusable answer).
 
 ### Round Controller (`app.js`)
@@ -151,6 +153,10 @@ PRD ref: `prd.md > Pitch Box and Submit`.
 ### Persistence (`app.js`)
 `save()` and `load()` use one `localStorage` key, `aiJudges.v1`. Saving happens only after a complete round, so a reload mid-round restores the last completed one. `newPitch()` removes the key and resets the UI. **Second to cut.**
 PRD ref: `prd.md > Persistence and New Pitch`.
+
+### UI Language Toggle (`index.html` + `app.js` + `style.css`)
+An EN / JA toggle at the top right (above the title on phones). English is the default; the choice is saved under `localStorage` key `aiJudges.lang`. Every UI string lives in one `STRINGS` object in `app.js` with `en` and `ja` keys, read through `t(key, ...args)`; static page text is tagged `data-i18n`, and the "Fix:" label comes from a `data-label` attribute. Switching sets `<html lang>`, re-renders cards, badge and controls, and in Japanese falls back to Japanese system fonts (Bebas Neue and Inter have no kana or kanji). Judge names stay as they are; roles use `roleJa`. **The toggle is UI only:** requests to the judges are identical in both languages, and judges answer in the language of the pitch.
+Added after the PoC review (it was deferred in `prd.md > Deferred From the POC`).
 
 ### All-Fail Banner (`index.html` + `app.js`)
 Shown when all three judges failed in the latest attempt. Hidden on the next submit, or as soon as any judge succeeds.

@@ -159,7 +159,7 @@ Source: `scope.md > The Unique Kernel` ("a number that moves").
 - **Full round history** (a timeline of every rewrite). Only the last round is kept now. History is a separate feature.
 - **Adjustable advance threshold.** Fixed at 70. A settings UI isn't needed to prove the idea.
 - **Post-mortem tab** (contest criteria + winners' descriptions). Cheap once the panel works, but not part of the demo (`scope.md > Later`).
-- **Japanese UI.** A day-2 strings file. The demo is for English-speaking judges (`scope.md > Later`).
+- ~~**Japanese UI.**~~ Built after the final review: an EN / JA toggle for UI text only (`spec.md > UI Language Toggle`). English stays the default for the demo.
 - **Claude API provider switch.** The endpoint choice keeps it cheap, but it isn't built or tested now (`scope.md > Later`).
 
 ## Possible Later Enhancements

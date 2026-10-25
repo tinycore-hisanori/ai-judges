@@ -40,7 +40,7 @@ In their words: paste a real pitch about to be submitted. Three judge cards appe
 
 ## Later
 - **Post-mortem tab** (paste the contest criteria and winners' descriptions to see where you lost). "Same judges with two extra input boxes": cheap once the panel works, but not in the demo.
-- **Japanese UI.** "Adding a strings file is a day-2 job"; the demo video is for English-speaking judges.
+- ~~**Japanese UI.**~~ Built after the final review as a small EN / JA toggle (UI text only); English stays the default for the demo video.
 - **Claude API provider switch via an env var.** The endpoint choice keeps it cheap, but it isn't built or tested now.
 
 ## Explicitly Cut
