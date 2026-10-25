@@ -41,6 +41,7 @@ PRD ref: `prd.md > The Core Journey`.
 - **Plain HTML + CSS + vanilla JavaScript (ES modules, no TypeScript, no build step).** Your choice. A build step is overhead for one page in a one-day project. You'd use Vite for games, not here. The tradeoff: DOM updates are hand-written.
 - **Static server:** `python -m http.server 8000` (or `npx serve`). It's needed because ES modules and Ollama's CORS allowlist work for `http://localhost` origins, not `file://`.
 - **Ollama, native API**, model **`qwen2.5:32b`** (Q4, ~21 GB with `num_ctx: 6144` for pitches and `12288` for submission review), running on an RTX 4090 (24 GB) with Ollama's KV cache quantized (`OLLAMA_FLASH_ATTENTION=1`, `OLLAMA_KV_CACHE_TYPE=q8_0`). Docs: https://github.com/ollama/ollama/blob/main/docs/api.md · structured outputs: https://ollama.com/blog/structured-outputs · CORS/`OLLAMA_ORIGINS`: https://github.com/ollama/ollama/blob/main/docs/faq.md
+- **File extraction (v1.2), vendored in `vendor/`:** pdf.js 4.10.38 (Apache-2.0, https://mozilla.github.io/pdf.js/), JSZip 3.10.1 (MIT, https://stuk.github.io/jszip/) for `.docx`/`.pptx`, SheetJS Community Edition 0.20.3 mini build (Apache-2.0, https://docs.sheetjs.com/) for `.xlsx`. No CDN: they're loaded with dynamic `import()` from `vendor/` the first time a file of that type is attached, so the page loads no faster or slower than before and works offline. SheetJS comes from its own CDN tarball because the npm `xlsx` package stopped at 0.18.5, which has known vulnerabilities.
 - **Fonts:** Bebas Neue (https://fonts.google.com/specimen/Bebas+Neue) and Inter (https://rsms.me/inter/), both under the OFL licence, self-hosted as woff2.
 - **Portraits:** flat-shaded SVG illustrations in `assets/portraits/src/`, rendered to 512×512 PNGs by `assets/portraits/src/render.mjs` (Playwright + local Chrome). Changed from Codex image generation: the build session had no image model, so they were drawn as vectors; a Codex PNG can still replace any of them under the same filename.
 
@@ -171,7 +172,7 @@ A "Verdicts in" select next to the EN / JA toggle: Auto (language of the pitch) 
 
 ### Submission Review (`index.html` + `app.js` + `judges.js` + `style.css`)
 v1.1, added after shipping. Implements `prd.md > Submission Review`.
-- **Form:** a `<details id="submission">` under the pitch counter, with a `<fieldset>` (disabled during a round) holding four slots (label input, "Load .md/.txt" button + hidden file input read with `FileReader`, textarea), the criteria textarea (pre-filled with `DEFAULT_CRITERIA`, verbatim from Devpost) and the combined counter. The form is saved under `localStorage` key `aiJudges.submission`. "New pitch" resets it too: all four attachments emptied, labels and criteria back to the defaults, section collapsed, and the `aiJudges.submission` entry removed (the UI and verdict-language settings stay).
+- **Form:** a `<details id="submission">` under the pitch counter, with a `<fieldset>` (disabled during a round) holding four slots (label input, "Load file" button + hidden file input, textarea, status line; see **File Attachments**), the criteria textarea (pre-filled with `DEFAULT_CRITERIA`, verbatim from Devpost) and the combined counter. The form is saved under `localStorage` key `aiJudges.submission`. "New pitch" resets it too: all four attachments emptied, labels and criteria back to the defaults, section collapsed, and the `aiJudges.submission` entry removed (the UI and verdict-language settings stay).
 - **On/off:** `activeSubmission(form)` returns `{ attachments, criteria }` only when at least one attachment has text; otherwise `null`, and every request is the v1 one (checked byte-for-byte against a recorded golden copy of the demo story's 9 requests).
 - **Limit:** `MAX_TOTAL_CHARS = 12000` for pitch (≤ 6000) + criteria + documents, filled in that order; the combined counter turns red past it.
 - **Criteria:** `criterionNames()` takes the text before " — " on each line. With exactly three criteria and all three home criteria listed, `homeCriterion()` pins each judge's criterion; otherwise the judge chooses from the list.
@@ -179,6 +180,19 @@ v1.1, added after shipping. Implements `prd.md > Submission Review`.
 - **Context:** `num_ctx: 12288` in review mode (`SUBMISSION_NUM_CTX`), 6144 otherwise. 12,000 characters is up to ~9,000 tokens in Japanese. On the 24 GB card this needs the q8_0 KV cache: with the default f16 cache, 16384 put only 62 of 65 layers on the GPU and 12288 spilled into shared memory, and one judge took over 5 minutes at both. With q8_0 + flash attention, 12288 is 100% on the GPU (KV cache 1.6 GB instead of 3 GB, no shared-memory spill) at ~38 tokens/s: 4–7 s per judge, ~15–17 s per round.
 - **Criterion only:** review mode replaces each judge's priority paragraph with just their identity line (`submissionPersona`, e.g. "You are Ingrid Haas, an unimpressed early-stage investor.") plus the rule "Your criterion is the ONLY thing you score. Your profession colors your tone and what you notice, but you may not reject for anything outside the criterion." A pinned criterion adds its question (Innovation/Idea: "what is new here compared with existing tools, and is that stated?"). The rule alone wasn't enough: with the full persona, Ingrid scored Innovation/Idea on revenue and market size.
 - **Cards:** a `.criterion` line ("Design · Project story") above the reason.
+
+### File Attachments (`extract.js` + `app.js`)
+v1.2. Implements `prd.md > Submission Review` (loading a document instead of pasting it).
+- **Accepted:** `.md .markdown .txt .pdf .docx .pptx .xlsx` (`ACCEPTED_FILES`). `extractText(file)` picks the extractor by extension; the result replaces the slot's textarea, which is saved and counted like pasted text, so the judges read exactly what the user sees.
+- **docx:** `word/document.xml`, one line per `w:p`, with `w:tab` → tab and `w:br` → newline.
+- **pptx:** slides in presentation order (`p:sldIdLst` → `presentation.xml.rels`, not file names). Each slide is `--- Slide N ---`, then its `a:p` lines, then `Notes:` and the notes slide's body placeholder (the slide-image and slide-number placeholders are skipped).
+- **xlsx:** SheetJS; each sheet is `--- Sheet: name ---` then rows as tab-separated formatted values, blank rows dropped, at most 200 rows per sheet.
+- **pdf:** pdf.js text layer; each page is `--- Page N ---` then its text, with line ends where pdf.js reports them. The worker is `vendor/pdfjs/pdf.worker.min.mjs`.
+- **Status line** under each slot (`.att-status`, retranslated by the EN/JA toggle): "Reading the file…"; "No readable text found (scanned image?)" when fewer than 50 characters remain after removing markers and whitespace (the textarea is left as it was); "Couldn't read this file." if extraction throws (details in the console).
+- **Limit:** unchanged: pitch + criteria + documents are cut at 12,000 characters when sent.
+
+### Version Footer (`index.html` + `app.js`)
+`APP_VERSION` at the top of `app.js` (MAJOR.MINOR.PATCH: MINOR for a feature, PATCH for a bug fix, bumped in the same commit and in `CHANGELOG.md`; each release is tagged `vX.Y.Z` in git). The footer shows "AI Judges v1.2.0 · qwen2.5:32b · local", with the model from `MODEL`.
 
 ### All-Fail Banner (`index.html` + `app.js`)
 Shown when all three judges failed in the latest attempt. Hidden on the next submit, or as soon as any judge succeeds.
@@ -213,6 +227,9 @@ AiJudgements/
 ├── style.css             # stage theme, cards, states, counter, badge, spinner, @font-face
 ├── app.js                # state, round controller, callJudge, validateVerdict, rendering, counter, persistence
 ├── judges.js             # JUDGES definitions (persona prompts, seeds, portraits) + buildMessages
+├── extract.js            # text extraction for attached .md/.txt/.pdf/.docx/.pptx/.xlsx
+├── vendor/               # pdf.js, JSZip, SheetJS (+ licences, README with versions), loaded on demand
+├── CHANGELOG.md          # one entry per tagged version
 ├── assets/
 │   ├── portraits/        # vera.png, marco.png, ingrid.png (512×512, rendered from src/)
 │   │   └── src/          # vera.svg, marco.svg, ingrid.svg + render.mjs (SVG → PNG)

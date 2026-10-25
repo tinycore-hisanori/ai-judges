@@ -8,7 +8,10 @@ Runs entirely on your PC against a local model: your pitch never leaves the mach
 
 - **Any pitch language.** The judges generally answer in the language of the pitch: paste a Japanese pitch and you get Japanese verdicts. (This is the model's own behaviour, not a translation step, so an occasional sentence can come back in English.) To force one language, set **Verdicts in** at the top right to English or 日本語.
 - **Japanese UI.** The EN / JA toggle at the top right switches the interface text. It doesn't change the judges' language; that's the separate **Verdicts in** selector (Auto, English or 日本語). Picking the pitch's own language changes nothing (same prompt as Auto); only a different language adds an instruction.
-- **Submission review (v1.1).** Under the pitch box, **Attach your submission (optional)** takes up to four documents (Project story, README, Demo video script, Other; paste or load a `.md`/`.txt`, read in the browser only) and the judging criteria, pre-filled with this hackathon's Design / Innovation/Idea / Presentation. When at least one document has text, each judge keeps their persona but is pinned to a home criterion (Engineer → Design, Marketer → Presentation, Investor → Innovation/Idea; free choice if you list a different number of criteria), quotes from one document, and the card shows e.g. "Design · Project story". The quote must really be in the named document, or the judge gets one retry. Pitch + criteria + documents are capped at 12,000 characters. With no document text, the request is exactly the pitch-only one.
+- **Submission review (v1.1).** Under the pitch box, **Attach your submission (optional)** takes up to four documents (Project story, README, Demo video script, Other; paste text or load a file, see below) and the judging criteria, pre-filled with this hackathon's Design / Innovation/Idea / Presentation. When at least one document has text, each judge keeps their persona but is pinned to a home criterion (Engineer → Design, Marketer → Presentation, Investor → Innovation/Idea; free choice if you list a different number of criteria), quotes from one document, and the card shows e.g. "Design · Project story". The quote must really be in the named document, or the judge gets one retry. Pitch + criteria + documents are capped at 12,000 characters. With no document text, the request is exactly the pitch-only one.
+- **File attachments (v1.2).** Each slot's **Load file** button takes `.md`, `.txt`, `.pdf`, `.docx`, `.pptx` or `.xlsx`. The text is extracted in your browser (nothing is uploaded) and put in the slot's text box, so you see exactly what the judges read and can trim it. PDF pages come with `--- Page N ---` markers, PowerPoint slides (slide text, then speaker notes) in slide order with `--- Slide N ---`, Word as paragraphs, and Excel as `--- Sheet: name ---` followed by tab-separated rows, at most 200 per sheet. A scanned PDF with no text layer shows "No readable text found (scanned image?)". The 12,000-character total still applies.
+
+The version is shown in the footer; changes are listed in [CHANGELOG.md](CHANGELOG.md).
 
 ## Prerequisites
 
@@ -36,5 +39,7 @@ If the browser's requests to Ollama are blocked by CORS, set `OLLAMA_ORIGINS=htt
 - `index.html`, `style.css`: the page and the stage theme
 - `app.js`: round logic, the single model call (`callJudge`), rendering
 - `judges.js`: the three judges' personas and prompts
+- `extract.js`: text extraction for attached files
+- `vendor/`: pdf.js, JSZip and SheetJS, loaded only when a file of that type is attached, so everything works offline (versions and licences in `vendor/README.md`)
 - `assets/fonts`: Bebas Neue and Inter, self-hosted under the SIL Open Font License
 - `assets/portraits`: the judge portraits; SVG sources and the render script are in `assets/portraits/src`

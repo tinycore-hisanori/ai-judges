@@ -1,7 +1,11 @@
+// MAJOR.MINOR.PATCH: MINOR for a feature, PATCH for a bug fix. Bump in the same commit, and in CHANGELOG.md.
+const APP_VERSION = "1.2.0";
+
 import {
   JUDGES, MODEL, MAX_PITCH_CHARS, MAX_TOTAL_CHARS, VERDICT_LANG_LINES, DEFAULT_CRITERIA,
   activeSubmission, criterionNames, homeCriterion, submissionDocuments, buildMessages,
 } from "./judges.js";
+import { ACCEPTED_FILES, MIN_EXTRACTED_CHARS, extractText, readableLength } from "./extract.js";
 
 const OLLAMA_URL = "http://localhost:11434/api/chat";
 const MIN_PITCH_CHARS = 20;
@@ -53,7 +57,11 @@ const STRINGS = {
     attachHint: "The judges read these only when at least one document has text.",
     labelField: "Label",
     docPlaceholder: "Paste the document text",
-    loadFile: "Load .md/.txt",
+    loadFile: "Load file",
+    loadFileTitle: "Load .md, .txt, .pdf, .docx, .pptx or .xlsx; the text is extracted in your browser",
+    fileReading: "Reading the file…",
+    fileEmpty: "No readable text found (scanned image?)",
+    fileFailed: "Couldn't read this file.",
     criteriaLabel: "Judging criteria",
     totalCounter: (n, max) => `${n} / ${max} characters sent to the judges`,
     totalOver: (n, max) => `${n} / ${max} characters — Judges stop reading after ${max} characters`,
@@ -86,7 +94,11 @@ const STRINGS = {
     attachHint: "文書に1つでも本文があるときだけ、審査員がこれを読みます。",
     labelField: "ラベル",
     docPlaceholder: "文書の本文を貼り付け",
-    loadFile: ".md/.txt を読み込む",
+    loadFile: "ファイルを読み込む",
+    loadFileTitle: ".md、.txt、.pdf、.docx、.pptx、.xlsx を読み込みます（文字の抽出はブラウザ内で行います）",
+    fileReading: "ファイルを読み込んでいます…",
+    fileEmpty: "読み取れる文字がありません（スキャン画像？）",
+    fileFailed: "このファイルは読み込めませんでした。",
     criteriaLabel: "審査基準",
     totalCounter: (n, max) => `審査員に送る文字数 ${n} / ${max}`,
     totalOver: (n, max) => `${n} / ${max}文字 — 審査員が読むのは${max}文字までです`,
@@ -405,9 +417,10 @@ function buildSubmissionForm() {
       <div class="att-head">
         <input class="att-label" type="text">
         <button type="button" class="btn ghost att-load" data-i18n="loadFile"></button>
-        <input class="att-file" type="file" accept=".md,.markdown,.txt,text/plain,text/markdown" hidden>
+        <input class="att-file" type="file" accept="${ACCEPTED_FILES}" hidden>
       </div>
       <textarea class="att-text" rows="4"></textarea>
+      <p class="att-status" role="status" hidden></p>
     </div>`).join("");
   els.attachments.querySelectorAll(".attachment").forEach((slot, i) => {
     slot.querySelector(".att-label").value = saved?.attachments?.[i]?.label ?? DEFAULT_LABELS[i];
@@ -422,6 +435,7 @@ function resetSubmissionForm() {
     slot.querySelector(".att-label").value = DEFAULT_LABELS[i];
     slot.querySelector(".att-text").value = "";
     slot.querySelector(".att-file").value = "";
+    setFileStatus(slot, null);
   });
   els.criteria.value = DEFAULT_CRITERIA;
   els.submission.open = false;
@@ -432,23 +446,45 @@ function onSubmissionInput() {
   renderControls();
 }
 
-// Client-side only: the file is read in the browser and never uploaded.
-function loadAttachmentFile(input) {
+// A message under a slot's textarea (a STRINGS key, kept so the EN/JA toggle retranslates it), or null to hide it.
+function setFileStatus(slot, key) {
+  const el = slot.querySelector(".att-status");
+  el.hidden = !key;
+  if (key) el.dataset.i18n = key;
+  else delete el.dataset.i18n;
+  el.textContent = key ? t(key) : "";
+}
+
+// Client-side only: the file is read in the browser and never uploaded. The extracted
+// text goes into the textarea, so it is exactly what the judges read.
+async function loadAttachmentFile(input) {
   const file = input.files[0];
   if (!file) return;
-  const reader = new FileReader();
-  reader.onload = () => {
-    input.closest(".attachment").querySelector(".att-text").value = reader.result;
-    input.value = "";
-    onSubmissionInput();
-  };
-  reader.readAsText(file);
+  input.value = "";
+  const slot = input.closest(".attachment");
+  setFileStatus(slot, "fileReading");
+  let text;
+  try {
+    text = await extractText(file);
+  } catch (err) {
+    console.warn(`Couldn't read ${file.name}:`, err);
+    setFileStatus(slot, "fileFailed");
+    return;
+  }
+  if (readableLength(text) < MIN_EXTRACTED_CHARS) {
+    setFileStatus(slot, "fileEmpty");
+    return;
+  }
+  setFileStatus(slot, null);
+  slot.querySelector(".att-text").value = text;
+  onSubmissionInput();
 }
 
 // --- Rendering ---------------------------------------------------------------
 
 const els = {
   panel: document.getElementById("panel"),
+  footer: document.getElementById("appFooter"),
   pitch: document.getElementById("pitch"),
   counter: document.getElementById("counter"),
   submit: document.getElementById("submit"),
@@ -591,6 +627,7 @@ function applyLang() {
   els.pitch.placeholder = t("placeholder");
   els.attachments.querySelectorAll(".att-text").forEach((el) => (el.placeholder = t("docPlaceholder")));
   els.attachments.querySelectorAll(".att-label").forEach((el) => el.setAttribute("aria-label", t("labelField")));
+  els.attachments.querySelectorAll(".att-load").forEach((el) => (el.title = t("loadFileTitle")));
   els.langButtons.forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.lang === lang)));
   JUDGES.forEach(renderCard);
   renderBadge();
@@ -615,6 +652,7 @@ buildSubmissionForm();
 load();
 els.verdictLang.value = verdictLang;
 applyLang();
+els.footer.textContent = `AI Judges v${APP_VERSION} · ${MODEL} · local`;
 
 els.pitch.addEventListener("input", renderControls);
 els.submit.addEventListener("click", submitRound);
