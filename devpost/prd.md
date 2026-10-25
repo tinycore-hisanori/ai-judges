@@ -110,7 +110,7 @@ Source: `scope.md > The Unique Kernel` ("a number that moves").
 
 ### Persistence and New Pitch
 - The current pitch, the latest round, and the previous round are kept in this browser, so a reload brings back the same screen, including the deltas.
-- "New pitch" clears the box, all verdicts, the previous round and the badge, and returns to the first-arrival screen.
+- "New pitch" clears the box, all verdicts, the previous round and the badge, plus the submission-review attachments (labels and criteria back to the defaults), and returns to the first-arrival screen.
 
 - [ ] After a completed round, reloading the page shows the same pitch, scores, reasons, fixes and deltas.
 - [ ] Pressing "New pitch" returns the cards to "Waiting for your pitch…", empties the box and empties the badge.

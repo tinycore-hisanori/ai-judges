@@ -343,7 +343,11 @@ function load() {
 
 function newPitch() {
   if (state.running) return;
-  try { localStorage.removeItem(STORAGE_KEY); } catch {}
+  try {
+    localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(SUBMISSION_KEY);
+  } catch {}
+  resetSubmissionForm();
   for (const j of JUDGES) {
     state.current[j.id] = null;
     state.previous[j.id] = null;
@@ -360,7 +364,7 @@ function newPitch() {
 }
 
 // --- Submission form (attachments + criteria) -----------------------------------
-// Kept in the browser across reloads; "New pitch" leaves it alone.
+// Kept in the browser across reloads; "New pitch" resets it to the defaults.
 
 function readSubmission() {
   return {
@@ -390,6 +394,16 @@ function buildSubmissionForm() {
   });
   els.criteria.value = saved?.criteria ?? DEFAULT_CRITERIA;
   if (activeSubmission(readSubmission())) els.submission.open = true;
+}
+
+function resetSubmissionForm() {
+  els.attachments.querySelectorAll(".attachment").forEach((slot, i) => {
+    slot.querySelector(".att-label").value = DEFAULT_LABELS[i];
+    slot.querySelector(".att-text").value = "";
+    slot.querySelector(".att-file").value = "";
+  });
+  els.criteria.value = DEFAULT_CRITERIA;
+  els.submission.open = false;
 }
 
 function onSubmissionInput() {
