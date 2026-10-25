@@ -58,12 +58,12 @@ Each verdict has three parts: **one-line rejection reason**, **score (0–100)**
 Source: `scope.md > The POC Boundary`.
 
 - Submit is disabled until the box has at least 20 characters. There's no error dialog.
-- The counter under the box turns amber past 800 characters and red past 1500, with the message "Judges stop reading after ~1500 characters." The app still submits, but only the first 1500 characters go to the judges.
+- The counter under the box turns amber past 3000 characters and red past 6000, with the message "Judges stop reading after ~6000 characters." The app still submits, but only the first 6000 characters go to the judges.
 - There's only one button, "Submit to the panel," for both the first submit and every resubmit.
 - One round at a time. While a round runs, the box is read-only and the button is disabled and reads "Panel is deliberating…". A second submit can't be queued.
 
 - [ ] With fewer than 20 characters, Submit can't be pressed. At 20 or more, it can.
-- [ ] Past 800 characters the counter is amber. Past 1500 it's red and the warning appears.
+- [ ] Past 3000 characters the counter is amber. Past 6000 it's red and the warning appears.
 - [ ] During a round you can't type in the box and the button can't be pressed.
 
 ### Deliberation and Reveal
@@ -137,7 +137,7 @@ Source: `scope.md > The Unique Kernel` ("a number that moves").
 - **Total = plain average, 70 is the bar, fixed.** No settings UI in v1.
 - **No verdict from a partial panel.** "A partial panel isn't a verdict."
 - **Per-judge retry** instead of re-running the whole round.
-- **A soft length limit, not a block.** Warn at 800, warn harder and truncate at 1500.
+- **A soft length limit, not a block.** Warn at 3000, warn harder and truncate at 6000 (raised from 800 / 1500 after the build).
 - **Reload keeps your work.** "New pitch" is the only way to clear it.
 - **All-fail banner.** When all three judges fail, name the real cause ("Is Ollama running?") instead of showing three identical errors.
 - **Cut order:** the badge animation first, then persistence.

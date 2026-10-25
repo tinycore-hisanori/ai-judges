@@ -22,11 +22,11 @@ Your pitch only ever travels from the browser to `localhost:11434`. Nothing leav
 PRD ref: `prd.md > The Core Journey`.
 
 1. **Arrive.** The browser loads `index.html` from the static server. `app.js` reads `localStorage`. If nothing is saved, it renders three cards in the waiting state, an empty box, and an empty badge. If a round is saved, it restores the pitch, verdicts and deltas.
-2. **Write.** On each keystroke, `app.js` updates the character counter (amber > 800, red > 1500) and enables Submit at 20 or more characters.
+2. **Write.** On each keystroke, `app.js` updates the character counter (amber > 3000, red > 6000) and enables Submit at 20 or more characters.
 3. **Submit.** `app.js` locks the box, changes the button to "Panel is deliberating…", sets all cards to Reading…, and sets the badge to "Waiting for 3 judges." Each judge's last completed verdict becomes "previous" (in memory).
 4. **Judges run in sequence.** For each judge in `JUDGES` order (engineer → marketer → investor):
-   - `buildMessages(judge, pitch, previous)` in `judges.js` builds the persona system prompt, an optional "last round" note, and the pitch, cut to 1500 characters.
-   - `callJudge(judge, messages)` in `app.js` POSTs to Ollama `/api/chat` with the JSON schema, temperature 0.2, the judge's seed, and `num_ctx: 4096` (the default 32k context pushed 32B partly onto the CPU).
+   - `buildMessages(judge, pitch, previous)` in `judges.js` builds the persona system prompt, an optional "last round" note, and the pitch, cut to 6000 characters.
+   - `callJudge(judge, messages)` in `app.js` POSTs to Ollama `/api/chat` with the JSON schema, temperature 0.2, the judge's seed, and `num_ctx: 6144` (the default 32k context pushed 32B partly onto the CPU; 6144 holds a 6000-character pitch even in Japanese, about 4,500 prompt tokens plus the answer, while 8192 spilled into system RAM).
    - `validateVerdict()` checks the answer. A good verdict fills that card with the score, reason, fix and delta. A bad one sets that card to "left the room."
    - The badge updates its "Waiting for N judges" count.
 5. **Round ends.** When the loop finishes:
@@ -40,7 +40,7 @@ PRD ref: `prd.md > The Core Journey`.
 ## Stack
 - **Plain HTML + CSS + vanilla JavaScript (ES modules, no TypeScript, no build step).** Your choice. A build step is overhead for one page in a one-day project. You'd use Vite for games, not here. The tradeoff: DOM updates are hand-written.
 - **Static server:** `python -m http.server 8000` (or `npx serve`). It's needed because ES modules and Ollama's CORS allowlist work for `http://localhost` origins, not `file://`.
-- **Ollama, native API**, model **`qwen2.5:32b`** (Q4, ~20 GB with `num_ctx: 4096`, fully on the GPU), running on an RTX 4090 (24 GB). Docs: https://github.com/ollama/ollama/blob/main/docs/api.md · structured outputs: https://ollama.com/blog/structured-outputs · CORS/`OLLAMA_ORIGINS`: https://github.com/ollama/ollama/blob/main/docs/faq.md
+- **Ollama, native API**, model **`qwen2.5:32b`** (Q4, ~21 GB with `num_ctx: 6144`), running on an RTX 4090 (24 GB). Docs: https://github.com/ollama/ollama/blob/main/docs/api.md · structured outputs: https://ollama.com/blog/structured-outputs · CORS/`OLLAMA_ORIGINS`: https://github.com/ollama/ollama/blob/main/docs/faq.md
 - **Fonts:** Bebas Neue (https://fonts.google.com/specimen/Bebas+Neue) and Inter (https://rsms.me/inter/), both under the OFL licence, self-hosted as woff2.
 - **Portraits:** flat-shaded SVG illustrations in `assets/portraits/src/`, rendered to 512×512 PNGs by `assets/portraits/src/render.mjs` (Playwright + local Chrome). Changed from Codex image generation: the build session had no image model, so they were drawn as vectors; a Codex PNG can still replace any of them under the same filename.
 
@@ -98,7 +98,7 @@ PRD ref: `prd.md > Screens and Layout`.
 - Exports `buildMessages(judge, pitch, previous)`, which returns:
   - `system`: `judge.systemPrompt`
   - if `previous` exists, a `system` note: "For reference, last round you gave {score}." (score only; the persona prompt already says to read the pitch fresh)
-  - `user`: `pitch.slice(0, 1500)`
+  - `user`: `pitch.slice(0, 6000)`
 
 PRD ref: `prd.md > The Judges`, `prd.md > Resubmit and Score Movement`.
 
@@ -149,7 +149,7 @@ PRD ref: `prd.md > The Judges`, `prd.md > Resubmit and Score Movement`.
 PRD ref: `prd.md > Total Badge and Verdict`.
 
 ### Pitch Box and Counter (`app.js`)
-An `input` listener updates the counter text and its class (`ok` / `warn` > 800 / `over` > 1500 with the "Judges stop reading after ~1500 characters" message) and toggles Submit (≥ 20 characters and no round running).
+An `input` listener updates the counter text and its class (`ok` / `warn` > 3000 / `over` > 6000 with the "Judges stop reading after ~6000 characters" message) and toggles Submit (≥ 20 characters and no round running).
 PRD ref: `prd.md > Pitch Box and Submit`.
 
 ### Persistence (`app.js`)
@@ -212,7 +212,7 @@ AiJudgements/
     "messages": [
       { "role": "system", "content": "<persona prompt>" },
       { "role": "system", "content": "Last round you gave 58 because: ... (only on resubmit)" },
-      { "role": "user", "content": "<pitch, ≤1500 chars>" }
+      { "role": "user", "content": "<pitch, ≤6000 chars>" }
     ],
     "stream": false,
     "format": {
@@ -226,7 +226,7 @@ AiJudgements/
       },
       "required": ["evidence", "band", "reason", "score", "fix"]
     },
-    "options": { "temperature": 0.2, "seed": 101, "num_ctx": 4096 }
+    "options": { "temperature": 0.2, "seed": 101, "num_ctx": 6144 }
   }
   ```
 - **Evidence-first order:** the model fills the properties in schema order, so it copies the pitch sentence that addresses its priority (`evidence`, `""` if none) and picks a `band` *before* writing the reason and score. This was the only variant that stopped the marketer claiming a stated audience was missing. `evidence` and `band` aren't displayed or stored.
@@ -255,7 +255,7 @@ AiJudgements/
 - **Plain HTML/CSS/JS, served statically.** No build overhead for a one-day page.
 - **Browser calls Ollama directly, with `callJudge` as the single seam.**
 - **Native `/api/chat` with `format: <JSON schema>`, instead of the OpenAI-compatible `/v1` endpoint.** It's documented to enforce the schema. `scope.md > The POC Boundary` has been updated to match (it previously said "OpenAI-compatible endpoint"). The cheap switch is preserved by `callJudge` owning the request shape, not by the endpoint.
-- **`qwen2.5:32b` on an RTX 4090, judges run one after another.** The model is one constant (`MODEL` in `judges.js`). Chosen over 14B from a comparison on the recipe pair, the learner's real pair and the marketer test: only 32B passed the marketer test (it stopped calling a stated audience missing, and the investor stayed low). Cost: ~2.7 s per judge vs ~1.4 s for 14B, both fully on the GPU at `num_ctx: 4096`.
+- **`qwen2.5:32b` on an RTX 4090, judges run one after another.** The model is one constant (`MODEL` in `judges.js`). Chosen over 14B from a comparison on the recipe pair, the learner's real pair and the marketer test: only 32B passed the marketer test (it stopped calling a stated audience missing, and the investor stayed low). Cost: ~2.7 s per judge vs ~1.4 s for 14B, both fully on the GPU at `num_ctx: 6144`.
 - **Evidence-first verdict schema, plus one automatic retry (seed + 1) on an unusable answer.**
 - **Resubmits give each judge only its previous score, as reference** ("For reference, last round you gave N."), after the instruction to read the pitch fresh. Changed at the slice-2 checkpoint: passing the old reason anchored judges to it.
 - **Temperature 0.2 and a fixed seed per judge**, so the same pitch reproduces the same score.

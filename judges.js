@@ -79,7 +79,7 @@ You look for no business model, no paying customer, a tiny market, and nothing t
   },
 ];
 
-export const MAX_PITCH_CHARS = 1500;
+export const MAX_PITCH_CHARS = 6000;
 
 export function buildMessages(judge, pitch, previous) {
   const messages = [{ role: "system", content: judge.systemPrompt }];

@@ -2,7 +2,7 @@ import { JUDGES, MODEL, MAX_PITCH_CHARS, buildMessages } from "./judges.js";
 
 const OLLAMA_URL = "http://localhost:11434/api/chat";
 const MIN_PITCH_CHARS = 20;
-const WARN_PITCH_CHARS = 800;
+const WARN_PITCH_CHARS = 3000;
 const JUDGE_TIMEOUT_MS = 60_000;
 const STORAGE_KEY = "aiJudges.v1";
 const COUNT_UP_MS = 600;
@@ -123,8 +123,8 @@ async function callJudge(judge, messages, seed = judge.seed) {
       messages,
       stream: false,
       format: VERDICT_SCHEMA,
-      // 4096 tokens is plenty for prompt + 1500-char pitch, and keeps 32B on the GPU.
-      options: { temperature: 0.2, seed, num_ctx: 4096 },
+      // 6144 tokens fits the prompt + a 6000-char pitch (even in Japanese, ~4,800 tokens); 8192 spilled 32B into system RAM.
+      options: { temperature: 0.2, seed, num_ctx: 6144 },
     }),
   });
   if (!res.ok) throw new Error(`Ollama HTTP ${res.status}`);
