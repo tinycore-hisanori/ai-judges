@@ -26,3 +26,4 @@ If the browser's requests to Ollama are blocked by CORS, set `OLLAMA_ORIGINS=htt
 - `app.js`: round logic, the single model call (`callJudge`), rendering
 - `judges.js`: the three judges' personas and prompts
 - `assets/fonts`: Bebas Neue and Inter, self-hosted under the SIL Open Font License
+- `assets/portraits`: the judge portraits; SVG sources and the render script are in `assets/portraits/src`

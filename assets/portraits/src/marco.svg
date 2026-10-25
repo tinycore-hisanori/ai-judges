@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+<defs>
+  <radialGradient id="spot" cx="50%" cy="34%" r="62%">
+    <stop offset="0" stop-color="#ffcf8a" stop-opacity="0.55"/>
+    <stop offset="0.5" stop-color="#ffb35c" stop-opacity="0.14"/>
+    <stop offset="1" stop-color="#ffb35c" stop-opacity="0"/>
+  </radialGradient>
+</defs>
+<!-- navy stage + warm spotlight -->
+<rect width="512" height="512" fill="#0b1020"/>
+<polygon points="200,0 312,0 500,512 12,512" fill="#ffd9a0" opacity="0.06"/>
+<rect width="512" height="512" fill="url(#spot)"/>
+<defs>
+  <pattern id="jk" width="44" height="44" patternUnits="userSpaceOnUse" patternTransform="rotate(18)">
+    <rect width="44" height="44" fill="#d8572a"/>
+    <circle cx="11" cy="11" r="7" fill="#f2c14e"/>
+    <path d="M33 22 L44 33 L33 44 L22 33 Z" fill="#2d7d8a"/>
+    <circle cx="33" cy="9" r="4" fill="#c2366b"/>
+    <circle cx="9" cy="35" r="3" fill="#fff3d6"/>
+  </pattern>
+</defs>
+<!-- loud jacket -->
+<path d="M50 512 C62 418 150 382 256 378 C362 382 450 418 462 512 Z" fill="url(#jk)"/>
+<path d="M334 386 C404 402 446 444 462 512 L384 512 C376 458 362 420 334 386 Z" fill="#000" opacity="0.22"/>
+<path d="M206 384 L256 470 L306 384 Z" fill="#3a2350"/>
+<path d="M206 384 L186 400 L232 470 L256 470 Z M306 384 L326 400 L280 470 L256 470 Z" fill="url(#jk)"/>
+<path d="M206 384 L186 400 L232 470 L256 470 Z M306 384 L326 400 L280 470 L256 470 Z" fill="#000" opacity="0.28"/>
+<path d="M222 384 L240 412 L256 396 L272 412 L290 384 Z" fill="#fff3d6"/>
+<!-- neck -->
+<path d="M222 300 L222 390 Q256 404 290 390 L290 300 Z" fill="#c98d63"/>
+<path d="M222 316 Q256 344 290 316 L290 338 Q256 362 222 338 Z" fill="#a8704b"/>
+<!-- ears + head, squarer jaw -->
+<ellipse cx="173" cy="236" rx="14" ry="22" fill="#bd8259"/>
+<ellipse cx="339" cy="236" rx="14" ry="22" fill="#ad7350"/>
+<path d="M176 200 Q176 128 256 126 Q336 128 336 200 L334 262 Q330 312 290 326 Q256 336 222 326 Q182 312 178 262 Z" fill="#d39668"/>
+<path d="M306 134 Q340 170 334 262 Q330 312 290 326 Q322 290 324 240 Q326 180 306 134 Z" fill="#b97b52"/>
+<!-- stubble -->
+<path d="M190 268 Q196 318 256 330 Q316 318 322 268 Q318 300 290 314 Q256 324 222 314 Q194 300 190 268 Z" fill="#3a2a20" opacity="0.28"/>
+<!-- pompadour -->
+<path d="M170 222 Q156 106 250 96 Q340 88 348 176 Q350 204 340 224 Q332 168 284 156 Q232 150 198 168 Q178 184 170 222 Z" fill="#2b1d16"/>
+<path d="M190 130 Q240 70 320 104 Q300 96 270 104 Q236 112 210 140 Z" fill="#3d2a20"/>
+<path d="M214 120 Q256 96 300 112" stroke="#4e372a" stroke-width="3" fill="none"/>
+<!-- brows: one raised -->
+<path d="M203 198 L241 196" stroke="#2b1d16" stroke-width="9" stroke-linecap="round"/>
+<path d="M270 184 Q290 158 314 178" stroke="#2b1d16" stroke-width="9" stroke-linecap="round" fill="none"/>
+<!-- eyes -->
+<ellipse cx="222" cy="216" rx="13" ry="6" fill="#fff"/>
+<ellipse cx="292" cy="210" rx="13" ry="10" fill="#fff"/>
+<circle cx="225" cy="216" r="5.5" fill="#24170f"/>
+<circle cx="295" cy="211" r="6" fill="#24170f"/>
+<path d="M208 213 Q222 206 236 213" stroke="#2b1d16" stroke-width="4" fill="none"/>
+<!-- big nose -->
+<path d="M256 208 Q252 250 236 264 Q256 280 278 262" stroke="#9c6440" stroke-width="5" fill="none" stroke-linecap="round"/>
+<!-- smirk + dimple -->
+<path d="M226 296 Q258 306 294 284" stroke="#6e3326" stroke-width="5.5" stroke-linecap="round" fill="none"/>
+<path d="M300 280 Q304 288 300 296" stroke="#9c6440" stroke-width="3" fill="none"/>
+</svg>

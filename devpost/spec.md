@@ -42,7 +42,7 @@ PRD ref: `prd.md > The Core Journey`.
 - **Static server:** `python -m http.server 8000` (or `npx serve`). It's needed because ES modules and Ollama's CORS allowlist work for `http://localhost` origins, not `file://`.
 - **Ollama, native API**, model **`qwen2.5:32b`** (Q4, ~20 GB with `num_ctx: 4096`, fully on the GPU), running on an RTX 4090 (24 GB). Docs: https://github.com/ollama/ollama/blob/main/docs/api.md · structured outputs: https://ollama.com/blog/structured-outputs · CORS/`OLLAMA_ORIGINS`: https://github.com/ollama/ollama/blob/main/docs/faq.md
 - **Fonts:** Bebas Neue (https://fonts.google.com/specimen/Bebas+Neue) and Inter (https://rsms.me/inter/), both under the OFL licence, self-hosted as woff2.
-- **Portraits:** PNGs you generate with Codex's image tool. The build uses placeholders until then.
+- **Portraits:** flat-shaded SVG illustrations in `assets/portraits/src/`, rendered to 512×512 PNGs by `assets/portraits/src/render.mjs` (Playwright + local Chrome). Changed from Codex image generation: the build session had no image model, so they were drawn as vectors; a Codex PNG can still replace any of them under the same filename.
 
 **Not verified in this session (check in the first build step):** that Ollama's default allowed origins include `http://localhost:8000`, and that `format: <schema>` is honoured by your installed Ollama version.
 
@@ -185,7 +185,8 @@ AiJudgements/
 ├── app.js                # state, round controller, callJudge, validateVerdict, rendering, counter, persistence
 ├── judges.js             # JUDGES definitions (persona prompts, seeds, portraits) + buildMessages
 ├── assets/
-│   ├── portraits/        # vera.png, marco.png, ingrid.png (square; placeholders until generated)
+│   ├── portraits/        # vera.png, marco.png, ingrid.png (512×512, rendered from src/)
+│   │   └── src/          # vera.svg, marco.svg, ingrid.svg + render.mjs (SVG → PNG)
 │   └── fonts/            # BebasNeue-Regular.woff2, Inter (woff2) + OFL licence files
 ├── README.md             # what it is, prerequisites, start command, privacy note
 ├── .gitignore
@@ -250,7 +251,7 @@ AiJudgements/
 - **Evidence-first verdict schema, plus one automatic retry (seed + 1) on an unusable answer.**
 - **Resubmits give each judge only its previous score, as reference** ("For reference, last round you gave N."), after the instruction to read the pitch fresh. Changed at the slice-2 checkpoint: passing the old reason anchored judges to it.
 - **Temperature 0.2 and a fixed seed per judge**, so the same pitch reproduces the same score.
-- **Portraits generated with Codex's image tool** (same style prompt for all three), with initial placeholders first.
+- **Portraits drawn as SVG and rendered to PNG** (one shared navy-and-spotlight background, flat shading), with the initials placeholders still used if a PNG is missing.
 - **Self-hosted OFL fonts**, so the app works fully offline.
 
 **Implementation details derived from those decisions**
@@ -264,5 +265,5 @@ AiJudgements/
 **The useful unknown:** "format: json or json_schema" on the `/v1` endpoint. `json_object` only guarantees valid JSON, and support for `json_schema` on `/v1` was uncertain. You resolved it by moving to native `/api/chat` with a schema, while keeping validation in `app.js` either way. **Check in build step 1:** a curl to `/api/chat` with the schema returns `{score, reason, fix}`, and a browser fetch from `http://localhost:8000` isn't blocked by CORS.
 
 **Open (doesn't block the build)**
-- Portrait art is generated during or after the build. Placeholders cover the demo until then.
+- Portrait art is done (SVG sources in `assets/portraits/src/`). The initials placeholders stay as the fallback.
 - Prompt wording and rubric: tune during the build against two or three real pitches. The check is that a rewrite that applies a judge's fix visibly moves that judge's score.
