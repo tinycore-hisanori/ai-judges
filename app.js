@@ -199,25 +199,41 @@ async function callJudge(judge, messages, seed = judge.seed, submission = null, 
   return JSON.parse(data.message.content);
 }
 
-class UnusableVerdict extends Error {}
+class UnusableVerdict extends Error {
+  constructor(message, { raw, language = false } = {}) {
+    super(message);
+    this.raw = raw;           // the answer as the model sent it, for the console
+    this.language = language; // rejected only for answering in the wrong language
+  }
+}
 
 const normalizeSpace = (s) => s.replace(/\s+/g, " ").trim();
 
-// Quotes keep the document's own language, so only the judge's own words are checked.
-const hasJapanese = (s) => /[぀-ヿ㐀-鿿]/.test(s.replace(/"[^"]*"|“[^”]*”|「[^」]*」|『[^』]*』/g, ""));
+// Quotes keep the document's own language and the band label is always English,
+// so only the judge's own words count: "ja" when kana/kanji are at least half of
+// the letters left, "en" otherwise, null when too few are left to tell
+// (a fix that is just `Add: "<sentence for an English pitch>"`).
+export function ownLanguage(s) {
+  const own = s.replace(/"[^"]*"|“[^”]*”|「[^」]*」|『[^』]*』/g, "").replace(/^\s*Band \d+-\d+ \([a-z]+\):/, "");
+  const ja = (own.match(/[぀-ヿ㐀-鿿]/g) || []).length;
+  const latin = (own.match(/[A-Za-z]/g) || []).length;
+  if (ja + latin < 10) return null;
+  return ja >= latin ? "ja" : "en";
+}
+const wrongLanguage = (s, lang) => lang && ownLanguage(s) !== null && ownLanguage(s) !== lang;
 
 // `documents`: what the judge was sent in submission review ([{ label, text }], "Pitch" first), else null.
 // `lang`: "en" or "ja" when a verdict language is selected, else null; reason and fix must be in it.
 export function validateVerdict(v, documents = null, lang = null) {
-  const fail = (msg) => { throw new UnusableVerdict(msg); };
+  const fail = (msg, language = false) => { throw new UnusableVerdict(msg, { raw: v, language }); };
   if (!v || typeof v !== "object") fail("verdict is not an object");
   if (!Number.isInteger(v.score) || v.score < 0 || v.score > 100) fail("score out of range");
   if (typeof v.reason !== "string" || !v.reason.trim()) fail("empty reason");
   if (/["“「]\s*["”」]/.test(v.reason)) fail("empty quote in reason");
   if (typeof v.fix !== "string" || !v.fix.trim()) fail("empty fix");
   if (v.fix.trim().length > MAX_FIX_CHARS) fail("fix is a rewrite, not one change");
-  if (lang && hasJapanese(v.reason) !== (lang === "ja")) fail(`reason is not in ${lang}`);
-  if (lang && hasJapanese(v.fix) !== (lang === "ja")) fail(`fix is not in ${lang}`);
+  if (wrongLanguage(v.reason, lang)) fail(`language check: reason is not in ${lang}`, true);
+  if (wrongLanguage(v.fix, lang)) fail(`language check: fix is not in ${lang}`, true);
   const verdict = { score: v.score, reason: v.reason.trim(), fix: v.fix.trim() };
   if (!documents) return verdict;
   if (typeof v.criterion !== "string" || !v.criterion.trim()) fail("empty criterion");
@@ -243,8 +259,13 @@ async function askJudge(judge) {
     if (!(err instanceof UnusableVerdict)) throw err;
     // One automatic retry for an unusable answer. A different seed, or the
     // deterministic model would repeat the same answer.
-    console.warn(`${judge.name} gave an unusable answer (${err.message}); retrying once`);
-    return validateVerdict(await callJudge(judge, messages, judge.seed + 1, submission, documents), documents, replyLang);
+    console.warn(`${judge.name} gave an unusable answer (${err.message}); retrying once. Raw:`, JSON.stringify(err.raw));
+    // A wrong-language answer gets the language rule again, right before the pitch:
+    // at the end of a long system prompt it is sometimes ignored.
+    const retryMessages = err.language
+      ? [...messages.slice(0, -1), { role: "system", content: VERDICT_LANG_LINES[replyLang] }, messages.at(-1)]
+      : messages;
+    return validateVerdict(await callJudge(judge, retryMessages, judge.seed + 1, submission, documents), documents, replyLang);
   }
 }
 
@@ -255,7 +276,7 @@ async function runJudge(judge) {
     state.current[judge.id] = await askJudge(judge);
     state.status[judge.id] = "done";
   } catch (err) {
-    console.warn(`${judge.name} failed:`, err);
+    console.warn(`${judge.name} failed:`, err, err.raw ? `Raw: ${JSON.stringify(err.raw)}` : "");
     state.status[judge.id] = "failed";
   }
   renderCard(judge);
