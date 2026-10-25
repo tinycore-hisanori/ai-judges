@@ -2,6 +2,9 @@
 
 Versions are MAJOR.MINOR.PATCH: MINOR for a feature, PATCH for a bug fix. Each release is tagged `vX.Y.Z` in git, and `APP_VERSION` in `app.js` matches the latest entry.
 
+## 1.2.2
+- Fix: in submission review, a judge could repeat the same complaint for several rounds after the documents had answered it. The previous-verdict note now includes the judge's previous complaint and tells them to look for a sentence that answers it, quote that sentence and move the score. Pitch-only rounds are unchanged.
+
 ## 1.2.1
 - Fix: after switching between pitch-only and submission review, or changing the criteria, the cards compared scores across different rubrics. A round under a new rubric now shows "New rubric" instead of arrows, hides "Previous round", doesn't tell the judges their last score, and the badge doesn't count up from the old total.
 

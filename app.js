@@ -1,5 +1,5 @@
 // MAJOR.MINOR.PATCH: MINOR for a feature, PATCH for a bug fix. Bump in the same commit, and in CHANGELOG.md.
-const APP_VERSION = "1.2.1";
+const APP_VERSION = "1.2.2";
 
 import {
   JUDGES, MODEL, MAX_PITCH_CHARS, MAX_TOTAL_CHARS, VERDICT_LANG_LINES, DEFAULT_CRITERIA,

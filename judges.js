@@ -139,6 +139,8 @@ const FREE_CRITERION_RULE = `- "criterion": the ONE judging criterion your verdi
 const homeCriterionRule = ({ name, focus, question }) =>
   `- "criterion": always "${name}". It is your home criterion: judge ${focus}. You may mention a second criterion in the reason, but this field stays "${name}".
 For ${name} the question is: ${question}`;
+// Without the old complaint and this rule, judges repeated an answered complaint round after round.
+const PREVIOUS_COMPLAINT_RULE = "Before scoring, search the documents for a sentence that answers your previous complaint. If one exists, quote THAT sentence as evidence and move your score; repeating the previous complaint when it has been addressed is an error.";
 const REASON_SOURCE_RULE = `In "reason", name the document you quote from, e.g. In the Project story, "..." never says ...`;
 
 // Submission review is on only when at least one attachment has text.
@@ -200,7 +202,9 @@ export function buildMessages(judge, pitch, previous, { verdictLang = "auto", su
   if (previous) {
     messages.push({
       role: "system",
-      content: `For reference, last round you gave ${previous.score}.`,
+      content: parts
+        ? `For reference, last round you gave ${previous.score}. Your previous complaint: ${previous.reason}\n${PREVIOUS_COMPLAINT_RULE}`
+        : `For reference, last round you gave ${previous.score}.`,
     });
   }
   const user = parts
