@@ -66,15 +66,15 @@ Verification approach: API checks with `curl` against local Ollama, plus a throw
 
 ## Code Tour and App Map
 
-- [ ] Learning activity complete — guided route, focused alternative, prior practice connected, or brief recap
-- [ ] Optional edit and transfer reflection addressed — offered/declined/already covered/not applicable as appropriate
-- [ ] `devpost/app-map.html` generated from finished code, checked, and shown, including a project-grounded practice to reuse
+- [x] Learning activity complete — guided route, focused alternative, prior practice connected, or brief recap
+- [x] Optional edit and transfer reflection addressed — offered/declined/already covered/not applicable as appropriate
+- [x] `devpost/app-map.html` generated from finished code, checked, and shown, including a project-grounded practice to reuse
 
-Activity and evidence:
-Route and stops:
-Edit outcome:
-Reflection:
-Activity mode:
+Activity and evidence: Focused alternative on the learning goal (scope cutting): the final-review language-line cut — decision, evidence (3-round story fell 75 → 67; placement variants and a reworded round 3 didn't fix it; `## Revisions`), and the cut that protected the kernel demo. The learner contributed their own read of where v1's real limit was.
+Route and stops: Not toured interactively; `app-map.html` carries a 3-stop reference route (`submitRound` → `SHARED_RULES`/`buildMessages` → `callJudge`/`askJudge`/`validateVerdict`).
+Edit outcome: Not applicable (focused alternative; no edit offered).
+Reflection: Optional transfer question offered; learner declined.
+Activity mode: Focused alternative (experienced plan-first learner).
 
 ## Revisions
 - Pure-function checks (total, delta, and later `validateVerdict`) run in the browser by importing the live `app.js` module, not in Node — `app.js` builds the panel on load, so it can't be imported in Node without a DOM; the module cache means the import adds no side effects.

@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI Judges — App Map</title>
+<style>
+  :root {
+    --bg: #f7f4ec; --ink: #1d1a16; --muted: #6b665c; --card: #fffdf8; --line: #d9d2c3;
+    --gold: #9a7a2c; --navy: #0b1020; --accent: #2f6f9e; --code: #efe9dc;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #0b1020; --ink: #ece6d8; --muted: #a39d90; --card: #141a2c; --line: #2a3350;
+      --gold: #c9a24a; --navy: #ece6d8; --accent: #7fb4dc; --code: #1c2338; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.55 system-ui, "Segoe UI", sans-serif; }
+  main { max-width: 860px; margin: 0 auto; padding: 32px 16px 64px; }
+  h1 { font-size: 1.9rem; margin: 0 0 4px; }
+  h2 { font-size: 1.25rem; margin: 36px 0 10px; border-bottom: 1px solid var(--line); padding-bottom: 6px; }
+  .sub { color: var(--muted); margin: 0 0 8px; }
+  code { background: var(--code); padding: 1px 5px; border-radius: 4px; font-size: 0.92em; }
+  pre { background: var(--code); padding: 12px; border-radius: 6px; overflow-x: auto; font-size: 0.88em; }
+  .pieces { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
+  .piece, .stop { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; }
+  .piece h3, .stop h3 { margin: 0 0 4px; font-size: 1rem; }
+  .piece p, .stop p { margin: 4px 0; }
+  figure { margin: 0; background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 12px; }
+  figure svg { width: 100%; height: auto; display: block; }
+  figcaption { color: var(--muted); font-size: 0.9rem; margin-top: 6px; }
+  ol.route { padding-left: 0; list-style: none; counter-reset: s; display: grid; gap: 10px; }
+  ol.route > li { counter-increment: s; }
+  ol.route .stop h3::before { content: counter(s) ". "; color: var(--gold); }
+  table { border-collapse: collapse; width: 100%; font-size: 0.95rem; }
+  th, td { text-align: left; border-bottom: 1px solid var(--line); padding: 8px 6px; vertical-align: top; }
+  th { color: var(--muted); font-weight: 600; }
+  details { margin-top: 6px; }
+  summary { cursor: pointer; color: var(--accent); }
+  .note { border-left: 3px solid var(--gold); padding: 4px 12px; background: var(--card); border-radius: 0 6px 6px 0; }
+  .meta { color: var(--muted); font-size: 0.9rem; }
+  a { color: var(--accent); }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>AI Judges — App Map</h1>
+  <p class="sub">A take-home guide to where things live. Snapshot of commit <code>5e39ccd</code>; the code can drift after this.</p>
+
+  <h2>What it is</h2>
+  <p>A single web page where three AI judges — an engineer, a marketer and an investor — each give a 3–5 line hackathon pitch a score, a one-sentence reason and one fix. You rewrite, resubmit, and see each score move. Every judge is a prompt to a local model in Ollama, so pitches never leave the machine. No build step, no server code: plain HTML, CSS and ES modules.</p>
+  <div class="pieces">
+    <div class="piece"><h3><code>index.html</code> + <code>style.css</code></h3><p>The stage: header, language toggle, the three cards, the pitch box and the total badge.</p></div>
+    <div class="piece"><h3><code>judges.js</code></h3><p>Who the judges are: <code>MODEL</code>, the shared rules, each persona prompt and seed, and <code>buildMessages</code>.</p></div>
+    <div class="piece"><h3><code>app.js</code></h3><p>Everything that happens: running a round, the one model call, checking answers, rendering, saving, UI strings.</p></div>
+    <div class="piece"><h3>Ollama (local)</h3><p><code>POST http://localhost:11434/api/chat</code> with a JSON schema, temperature 0.2, a fixed seed per judge and <code>num_ctx: 4096</code>.</p></div>
+  </div>
+
+  <h2>One action: “Submit to the panel”</h2>
+  <figure>
+    <svg viewBox="0 0 820 300" role="img" aria-labelledby="dtitle">
+      <title id="dtitle">Flow of one submit: button, submitRound, buildMessages, callJudge to Ollama, validateVerdict, render cards and badge, save to localStorage</title>
+      <defs>
+        <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0 0 L10 5 L0 10 z" fill="currentColor"/>
+        </marker>
+      </defs>
+      <g font-family="system-ui, sans-serif" font-size="13" fill="currentColor" style="color: var(--ink)">
+        <g stroke="var(--line)" stroke-width="1.5" fill="var(--card)">
+          <rect x="10" y="20" width="150" height="56" rx="8"/>
+          <rect x="200" y="20" width="180" height="56" rx="8"/>
+          <rect x="420" y="20" width="180" height="56" rx="8"/>
+          <rect x="640" y="20" width="170" height="56" rx="8"/>
+          <rect x="420" y="130" width="180" height="56" rx="8"/>
+          <rect x="200" y="130" width="180" height="56" rx="8"/>
+          <rect x="10" y="130" width="150" height="56" rx="8"/>
+          <rect x="200" y="230" width="180" height="50" rx="8"/>
+        </g>
+        <text x="85" y="44" text-anchor="middle" font-weight="600">Submit button</text>
+        <text x="85" y="62" text-anchor="middle" font-size="11.5">index.html #submit</text>
+        <text x="290" y="44" text-anchor="middle" font-weight="600">submitRound()</text>
+        <text x="290" y="62" text-anchor="middle" font-size="11.5">app.js · judges one by one</text>
+        <text x="510" y="44" text-anchor="middle" font-weight="600">buildMessages()</text>
+        <text x="510" y="62" text-anchor="middle" font-size="11.5">judges.js · prompt + last score</text>
+        <text x="725" y="44" text-anchor="middle" font-weight="600">Ollama /api/chat</text>
+        <text x="725" y="62" text-anchor="middle" font-size="11.5">local qwen2.5:32b</text>
+        <text x="510" y="154" text-anchor="middle" font-weight="600">validateVerdict()</text>
+        <text x="510" y="172" text-anchor="middle" font-size="11.5">app.js · bad answer → 1 retry</text>
+        <text x="290" y="154" text-anchor="middle" font-weight="600">renderCard / renderBadge</text>
+        <text x="290" y="172" text-anchor="middle" font-size="11.5">app.js · score, delta, total</text>
+        <text x="85" y="154" text-anchor="middle" font-weight="600">What you see</text>
+        <text x="85" y="172" text-anchor="middle" font-size="11.5">cards + “Would advance”</text>
+        <text x="290" y="252" text-anchor="middle" font-weight="600">save()</text>
+        <text x="290" y="269" text-anchor="middle" font-size="11.5">localStorage aiJudges.v1</text>
+        <g stroke="currentColor" stroke-width="1.5" fill="none" marker-end="url(#ar)" style="color: var(--muted)">
+          <path d="M160 48 H196"/>
+          <path d="M380 48 H416"/>
+          <path d="M600 48 H636"/>
+          <path d="M725 76 V158 H604"/>
+          <path d="M420 158 H384"/>
+          <path d="M200 158 H164"/>
+          <path d="M290 186 V226"/>
+        </g>
+        <text x="740" y="120" font-size="11.5" fill="var(--muted)">callJudge()</text>
+      </g>
+    </svg>
+    <figcaption>One submit runs the three judges in order (engineer → marketer → investor), each card updating as its verdict arrives. Only a complete round is saved.</figcaption>
+  </figure>
+
+  <h2>Reference route (3 stops)</h2>
+  <p class="meta">A route for finding your way back in, not a record of a guided tour. Search for the symbol in your editor; line numbers are approximate.</p>
+  <ol class="route">
+    <li><div class="stop">
+      <h3><code>submitRound()</code> in <code>app.js</code> (~line 187)</h3>
+      <p>Moves each judge's last verdict into <code>state.previous</code>, sets the cards to “Reading…”, then awaits <code>runJudge</code> for each judge in turn. <code>finishRound()</code> shows the all-fail banner, counts the badge up and calls <code>save()</code>.</p>
+    </div></li>
+    <li><div class="stop">
+      <h3><code>SHARED_RULES</code>, <code>JUDGES</code> and <code>buildMessages()</code> in <code>judges.js</code></h3>
+      <p>The judging behaviour is all prompt: the rubric bands, the evidence → band → reason → score → fix order, and each persona's priority. <code>buildMessages</code> sends the persona prompt, then (on a resubmit) only “For reference, last round you gave N.”, then the pitch, cut to 1,500 characters.</p>
+    </div></li>
+    <li><div class="stop">
+      <h3><code>callJudge()</code> → <code>askJudge()</code> → <code>validateVerdict()</code> in <code>app.js</code></h3>
+      <p><code>callJudge</code> is the only place that talks to the model. <code>validateVerdict</code> rejects a score outside 0–100, an empty reason or fix, an empty quote and a fix over 300 characters; <code>askJudge</code> then retries once with <code>seed + 1</code>. Network or timeout errors skip the retry and show “The judge left the room”.</p>
+      <details><summary>The checks, as written</summary>
+<pre>if (!Number.isInteger(v.score) || v.score &lt; 0 || v.score &gt; 100) fail("score out of range");
+if (typeof v.reason !== "string" || !v.reason.trim()) fail("empty reason");
+if (/["“「]\s*["”」]/.test(v.reason)) fail("empty quote in reason");
+if (typeof v.fix !== "string" || !v.fix.trim()) fail("empty fix");
+if (v.fix.trim().length &gt; MAX_FIX_CHARS) fail("fix is a rewrite, not one change");</pre>
+      </details>
+    </div></li>
+  </ol>
+
+  <h2>To change this, start here</h2>
+  <table>
+    <tr><th>Change</th><th>Where</th></tr>
+    <tr><td>Use a different model</td><td><code>MODEL</code> at the top of <code>judges.js</code> (pull it in Ollama first)</td></tr>
+    <tr><td>A judge's personality or priority</td><td>That judge's <code>systemPrompt</code> in <code>JUDGES</code>, <code>judges.js</code></td></tr>
+    <tr><td>Rules every judge follows</td><td><code>SHARED_RULES</code>, <code>judges.js</code></td></tr>
+    <tr><td>The pass mark (70)</td><td><code>ADVANCE_THRESHOLD</code>, <code>app.js</code></td></tr>
+    <tr><td>Any button, label or message (EN or JA)</td><td><code>STRINGS</code>, <code>app.js</code>; static page text is tagged <code>data-i18n</code> in <code>index.html</code></td></tr>
+    <tr><td>Character limits or the fix cap</td><td><code>MAX_PITCH_CHARS</code> (<code>judges.js</code>), <code>MIN_PITCH_CHARS</code> / <code>WARN_PITCH_CHARS</code> / <code>MAX_FIX_CHARS</code> (<code>app.js</code>)</td></tr>
+    <tr><td>Portraits</td><td>Edit <code>assets/portraits/src/*.svg</code>, then run <code>assets/portraits/src/render.mjs</code></td></tr>
+    <tr><td>Colours and fonts</td><td>The <code>:root</code> tokens at the top of <code>style.css</code></td></tr>
+  </table>
+
+  <h2>A practice to reuse</h2>
+  <div class="note">
+    <p><strong>Keep the kernel demo as a re-runnable check, and run it after every late addition.</strong></p>
+    <p>The kernel here is “the same panel changes its mind when the pitch improves”, captured as one three-round story (30 → 48 → 75, Would advance). During final review, a one-line prompt addition (“Answer in the language of the pitch”) looked harmless, but rerunning the story showed round 3 dropping to 67 because the engineer's verdict was borderline. Placing the line elsewhere didn't help, and rewording the pitch only moved the problem to another judge. So the line was cut and the language behaviour kept as the model's default (see <code>devpost/checklist.md › Revisions</code>).</p>
+    <p>On another project: write the kernel's demo down as concrete inputs and the expected visible result, script it, and treat “the demo still ends the same way” as the gate for anything added after the core works. When an extra and the kernel conflict, cut or weaken the extra.</p>
+  </div>
+
+  <h2>Run it again</h2>
+<pre>ollama pull qwen2.5:32b        # once
+python -m http.server 8000     # in the project folder
+# open http://localhost:8000</pre>
+  <p class="meta">If the browser's calls to Ollama are blocked by CORS, set <code>OLLAMA_ORIGINS=http://localhost:8000</code> and restart Ollama. Planning documents: <code>devpost/scope.md</code>, <code>prd.md</code>, <code>spec.md</code>, <code>checklist.md</code>.</p>
+</main>
+</body>
+</html>
