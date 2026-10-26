@@ -1,0 +1,1 @@
+AI Judges: a web page where three AI judges critique your hackathon pitch. You paste a pitch, they each give a score and a reason. Runs on a local LLM.

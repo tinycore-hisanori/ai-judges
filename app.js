@@ -1,5 +1,5 @@
 // MAJOR.MINOR.PATCH: MINOR for a feature, PATCH for a bug fix. Bump in the same commit, and in CHANGELOG.md.
-const APP_VERSION = "1.2.2";
+const APP_VERSION = "1.3.0";
 
 import {
   JUDGES, MODEL, MAX_PITCH_CHARS, MAX_TOTAL_CHARS, VERDICT_LANG_LINES, DEFAULT_CRITERIA,
@@ -8,6 +8,8 @@ import {
 import { ACCEPTED_FILES, MIN_EXTRACTED_CHARS, extractText, readableLength } from "./extract.js";
 
 const OLLAMA_URL = "http://localhost:11434/api/chat";
+const OLLAMA_TAGS_URL = "http://localhost:11434/api/tags";
+const OLLAMA_CHECK_TIMEOUT_MS = 5_000;
 const MIN_PITCH_CHARS = 20;
 const WARN_PITCH_CHARS = 3000;
 const JUDGE_TIMEOUT_MS = 60_000;
@@ -38,6 +40,9 @@ const STRINGS = {
     deliberating: "Panel is deliberating…",
     newPitch: "New pitch",
     banner: "Can't reach the local model. Is Ollama running?",
+    ollamaChecking: "Ollama: checking…",
+    ollamaConnected: (model) => `Ollama: connected · ${model}`,
+    ollamaNoModel: (model) => `Ollama: ${model} not pulled — run: ollama pull ${model}`,
     waitingPitch: "Waiting for your pitch…",
     reading: "Reading…",
     failed: "The judge left the room — retry",
@@ -76,6 +81,9 @@ const STRINGS = {
     deliberating: "審査中…",
     newPitch: "新しいピッチ",
     banner: "ローカルモデルに接続できません。Ollama は起動していますか？",
+    ollamaChecking: "Ollama: 確認中…",
+    ollamaConnected: (model) => `Ollama: 接続済み · ${model}`,
+    ollamaNoModel: (model) => `Ollama: ${model} がありません — ollama pull ${model} を実行してください`,
     waitingPitch: "ピッチを待っています…",
     reading: "読んでいます…",
     failed: "審査員が退席しました — 再試行してください",
@@ -340,6 +348,7 @@ async function submitRound() {
 
 function finishRound() {
   state.running = false;
+  checkOllama();
   // All three down usually means Ollama itself isn't reachable: say so once.
   els.banner.hidden = !JUDGES.every((j) => state.status[j.id] === "failed");
   const verdicts = JUDGES.map((j) => state.current[j.id]);
@@ -646,6 +655,7 @@ function applyLang() {
   JUDGES.forEach(renderCard);
   renderBadge();
   renderControls();
+  renderFooter();
 }
 
 function setLang(next) {
@@ -659,6 +669,37 @@ function setVerdictLang(next) {
   try { localStorage.setItem(VERDICT_LANG_KEY, verdictLang); } catch {}
 }
 
+// --- Footer and Ollama status --------------------------------------------------
+
+// "checking" | "connected" | "noModel" | "down"
+let ollamaStatus = "checking";
+
+// A bare model name means its ":latest" tag, as in Ollama itself.
+const hasModel = (models) => {
+  const want = MODEL.includes(":") ? MODEL : `${MODEL}:latest`;
+  return models.some((m) => m.name === want || m.model === want);
+};
+
+async function checkOllama() {
+  try {
+    const res = await fetch(OLLAMA_TAGS_URL, { signal: AbortSignal.timeout(OLLAMA_CHECK_TIMEOUT_MS) });
+    if (!res.ok) throw new Error(`Ollama HTTP ${res.status}`);
+    ollamaStatus = hasModel((await res.json()).models ?? []) ? "connected" : "noModel";
+  } catch {
+    ollamaStatus = "down";
+  }
+  renderFooter();
+}
+
+function renderFooter() {
+  const text = { checking: t("ollamaChecking"), connected: t("ollamaConnected", MODEL), noModel: t("ollamaNoModel", MODEL), down: t("banner") }[ollamaStatus];
+  els.footer.replaceChildren(`AI Judges v${APP_VERSION} · local · `);
+  const status = document.createElement("span");
+  status.className = `ollama-status ${ollamaStatus}`;
+  status.textContent = text;
+  els.footer.append(status);
+}
+
 // --- Wiring --------------------------------------------------------------------
 
 buildPanel();
@@ -666,7 +707,7 @@ buildSubmissionForm();
 load();
 els.verdictLang.value = verdictLang;
 applyLang();
-els.footer.textContent = `AI Judges v${APP_VERSION} · ${MODEL} · local`;
+checkOllama();
 
 els.pitch.addEventListener("input", renderControls);
 els.submit.addEventListener("click", submitRound);

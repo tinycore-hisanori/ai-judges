@@ -54,7 +54,14 @@ PRD ref: `prd.md > The Core Journey`.
   2. `setx OLLAMA_KV_CACHE_TYPE q8_0`
   3. Quit Ollama from the tray icon, then start it again from the Start menu (setx only reaches newly started programs).
   4. Check: `%LOCALAPPDATA%\Ollama\server.log` shows `OLLAMA_FLASH_ATTENTION:true` and `OLLAMA_KV_CACHE_TYPE:q8_0`.
-- **Start:**
+- **Start:** double-click `start.bat` (Windows) or run `./start.sh` (macOS/Linux). The launcher prints one status line per step and keeps the window open if any step fails:
+  1. Checks Ollama (`/api/tags`) and starts it if needed, polling for up to 30 s.
+  2. Pulls `qwen2.5:32b` if it's missing.
+  3. Warms the model with one `/api/generate` call (`keep_alive` 30m, `num_ctx` 6144 so the first pitch round doesn't reload it).
+  4. Starts `python -m http.server 8000` (falling back to `npx serve -l 8000`) if nothing answers on port 8000.
+  5. Opens http://localhost:8000.
+
+  Manually:
   ```
   python -m http.server 8000
   ```
@@ -194,7 +201,14 @@ v1.2. Implements `prd.md > Submission Review` (loading a document instead of pas
 - **Limit:** unchanged: pitch + criteria + documents are cut at 12,000 characters when sent.
 
 ### Version Footer (`index.html` + `app.js`)
-`APP_VERSION` at the top of `app.js` (MAJOR.MINOR.PATCH: MINOR for a feature, PATCH for a bug fix, bumped in the same commit and in `CHANGELOG.md`; each release is tagged `vX.Y.Z` in git). The footer shows e.g. "AI Judges v1.2.2 · qwen2.5:32b · local", with the model from `MODEL`.
+`APP_VERSION` at the top of `app.js` (MAJOR.MINOR.PATCH: MINOR for a feature, PATCH for a bug fix, bumped in the same commit and in `CHANGELOG.md`; each release is tagged `vX.Y.Z` in git). The footer shows e.g. "AI Judges v1.3.0 · local · Ollama: connected · qwen2.5:32b".
+- **Ollama indicator (v1.3):** `checkOllama()` fetches `/api/tags` (5 s timeout) on load and after each round. It shows:
+  - grey "Ollama: checking…" while waiting;
+  - green "connected · MODEL" when `MODEL` is listed (a bare name counts as `:latest`);
+  - red "MODEL not pulled — run: ollama pull MODEL" when Ollama answers without it;
+  - red with the banner text when it doesn't answer.
+
+  It follows the EN/JA toggle. It's informational only; the all-fail banner still appears only after a failed round.
 
 ### All-Fail Banner (`index.html` + `app.js`)
 Shown when all three judges failed in the latest attempt. Hidden on the next submit, or as soon as any judge succeeds.
@@ -232,6 +246,8 @@ AiJudgements/
 ├── extract.js            # text extraction for attached .md/.txt/.pdf/.docx/.pptx/.xlsx
 ├── vendor/               # pdf.js, JSZip, SheetJS (+ licences, README with versions), loaded on demand
 ├── CHANGELOG.md          # one entry per tagged version
+├── start.bat, start.sh   # one-click launcher: Ollama, model, warm-up, static server, browser
+├── tests/                # mocked Playwright checks (npm test), demo-story pitches, golden requests, file fixtures
 ├── assets/
 │   ├── portraits/        # vera.png, marco.png, ingrid.png (512×512, rendered from src/)
 │   │   └── src/          # vera.svg, marco.svg, ingrid.svg + render.mjs (SVG → PNG)

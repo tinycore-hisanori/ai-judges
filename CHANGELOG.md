@@ -2,6 +2,19 @@
 
 Versions are MAJOR.MINOR.PATCH: MINOR for a feature, PATCH for a bug fix. Each release is tagged `vX.Y.Z` in git, and `APP_VERSION` in `app.js` matches the latest entry.
 
+## 1.3.0
+- One-click launcher: `start.bat` (Windows) and `start.sh` (macOS/Linux). Each step prints one status line:
+  - starts Ollama if needed;
+  - pulls the model if it's missing;
+  - preloads it for 30 minutes;
+  - starts the static server on port 8000 if nothing answers there;
+  - opens the browser.
+  
+  On failure the window stays open.
+- The footer shows whether Ollama is reachable: a grey "checking…" while it checks, then a green "Ollama: connected · qwen2.5:32b", or red with the banner text (or the pull command if the model is missing). It's checked on load and again after each round.
+- README rewritten as a setup guide: requirements, step-by-step setup, usage, troubleshooting, development.
+- The mocked browser checks are now in `tests/` (`npm test`), with a new check for the footer indicator.
+
 ## 1.2.2
 - Fix: in submission review, a judge could repeat the same complaint for several rounds after the documents had answered it. The previous-verdict note now includes the judge's previous complaint and tells them to look for a sentence that answers it, quote that sentence and move the score. Pitch-only rounds are unchanged.
 

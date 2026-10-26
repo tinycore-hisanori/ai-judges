@@ -190,6 +190,8 @@ body {
 .pitch .att-text, .pitch #criteria { font-size: 0.9rem; padding: 10px; }
 .att-status { margin: 4px 0 0; font-size: 0.85rem; color: var(--muted); }
 .app-footer { text-align: center; padding: 24px 16px 32px; font-size: 0.75rem; color: var(--muted); }
+.ollama-status.connected { color: var(--up); }
+.ollama-status.noModel, .ollama-status.down { color: var(--down); }
 .criteria-field { display: block; margin-top: 14px; }
 .criteria-field span { display: block; font-weight: 600; margin-bottom: 6px; }
 .criterion { margin: 0; font-size: 0.8rem; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); }

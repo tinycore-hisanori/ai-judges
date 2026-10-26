@@ -1,0 +1,1 @@
+Plain text notes: the judges read exactly what is in the textarea.

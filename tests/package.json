@@ -1,0 +1,12 @@
+{
+  "name": "ai-judges-checks",
+  "private": true,
+  "description": "Mocked browser checks for AI Judges (Playwright driving the installed Chrome; Ollama is faked).",
+  "type": "module",
+  "scripts": {
+    "test": "node run-all.mjs"
+  },
+  "dependencies": {
+    "playwright-core": "^1.48.2"
+  }
+}
